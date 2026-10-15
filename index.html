@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LZX‑V Modular Synth Engine</title>
+    <style>
+      body { margin:0; overflow:hidden; background:#050505; color:#fff; font-family:'Courier New',Courier,monospace; }
+      #app { position:absolute; top:0; left:0; width:100vw; height:100vh; z-index:1; }
+      #ui-overlay { position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; z-index:10; pointer-events:none; }
+      .start-btn { pointer-events:auto; background:rgba(10,10,15,0.85); color:#00ffaa; border:1px solid #00ffaa; padding:15px 30px; font-size:1.2rem; cursor:pointer; box-shadow:0 0 15px rgba(0,255,170,0.2); transition:all .2s ease-out; text-transform:uppercase; letter-spacing:2px; }
+      .start-btn:hover { background:#00ffaa; color:#000; box-shadow:0 0 25px rgba(0,255,170,0.6); }
+      #synth-rack { position:absolute; top:15px; right:15px; width:340px; background:rgba(20,20,30,0.9); border:2px solid #00ffaa; border-radius:6px; padding:10px; z-index:20; display:none; font-size:0.9rem; }
+      .module { margin-bottom:12px; }
+      .module-title { font-weight:bold; color:#00ffaa; margin-bottom:4px; }
+      .knob { position:relative; width:48px; height:48px; margin:4px; display:inline-block; cursor:pointer; }
+      .knob canvas { width:100%; height:100%; }
+      .knob-label { text-align:center; margin-top:2px; font-size:0.8rem; }
+      .slider { width:100%; margin:4px 0; }
+      .toggle { display:flex; align-items:center; margin:4px 0; }
+      .toggle input { margin-right:6px; }
+    </style>
+  </head>
+  <body>
+    <div id="ui-overlay">
+      <button id="btn-audio" class="start-btn">Initialize Modular Engine (Mic)</button>
+    </div>
+    <div id="synth-rack"></div>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
