@@ -10,7 +10,7 @@
       #ui-overlay { position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; z-index:10; pointer-events:none; }
       .start-btn { pointer-events:auto; background:rgba(10,10,15,0.85); color:#00ffaa; border:1px solid #00ffaa; padding:15px 30px; font-size:1.2rem; cursor:pointer; box-shadow:0 0 15px rgba(0,255,170,0.2); transition:all .2s ease-out; text-transform:uppercase; letter-spacing:2px; }
       .start-btn:hover { background:#00ffaa; color:#000; box-shadow:0 0 25px rgba(0,255,170,0.6); }
-      #synth-rack { position:absolute; top:15px; right:15px; width:340px; background:rgba(20,20,30,0.9); border:2px solid #00ffaa; border-radius:6px; padding:10px; z-index:20; display:none; font-size:0.9rem; }
+      #synth-rack { position:absolute; top:15px; right:15px; width:340px; max-height:calc(100vh - 30px); overflow-y:auto; background:rgba(20,20,30,0.9); border:2px solid #00ffaa; border-radius:6px; padding:10px; z-index:20; display:none; font-size:0.9rem; }
       .module { margin-bottom:12px; }
       .module-title { font-weight:bold; color:#00ffaa; margin-bottom:4px; }
       .knob { position:relative; width:48px; height:48px; margin:4px; display:inline-block; cursor:pointer; }
@@ -19,6 +19,112 @@
       .slider { width:100%; margin:4px 0; }
       .toggle { display:flex; align-items:center; margin:4px 0; }
       .toggle input { margin-right:6px; }
+
+      /* ------- NDI MODULE STYLES ------- */
+      .ndi-module {
+        border-top:2px solid #ff6600;
+        padding-top:10px;
+        margin-top:16px;
+      }
+      .ndi-module-title { color:#ff6600 !important; }
+      .ndi-title-row {
+        display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;
+      }
+      .ndi-led {
+        display:inline-block; width:12px; height:12px; border-radius:50%;
+        background:#333; border:1px solid #555;
+        transition: background 0.3s, box-shadow 0.3s;
+      }
+      .ndi-led.led-off        { background:#444; }
+      .ndi-led.led-connecting  { background:#ccaa00; box-shadow:0 0 6px #ccaa00; }
+      .ndi-led.led-broadcasting{ background:#00cc44; box-shadow:0 0 8px #00cc44; }
+      .ndi-led.led-connected   { background:#0088ff; box-shadow:0 0 10px #0088ff; }
+      .ndi-led.led-tally       { background:#ff2222; box-shadow:0 0 14px #ff2222; animation: tally-pulse 0.8s infinite alternate; }
+      @keyframes tally-pulse { from{box-shadow:0 0 8px #ff2222;} to{box-shadow:0 0 20px #ff4444;} }
+
+      .ndi-toggle-row {
+        display:flex; align-items:center; justify-content:space-between;
+        margin-bottom:6px;
+      }
+      .ndi-switch-label { font-size:0.85rem; color:#ff6600; font-weight:bold; letter-spacing:1px; }
+      .ndi-toggle {
+        width:40px; height:20px; appearance:none; -webkit-appearance:none;
+        background:#333; border-radius:10px; position:relative; cursor:pointer;
+        border:1px solid #555; transition: background 0.2s;
+      }
+      .ndi-toggle::after {
+        content:''; position:absolute; top:2px; left:2px; width:14px; height:14px;
+        background:#888; border-radius:50%; transition: transform 0.2s, background 0.2s;
+      }
+      .ndi-toggle:checked { background:#ff6600; border-color:#ff6600; }
+      .ndi-toggle:checked::after { transform:translateX(20px); background:#fff; }
+
+      .ndi-status-line {
+        font-size:0.8rem; color:#aaa; margin-bottom:8px; min-height:1.2em;
+      }
+
+      .ndi-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+      .ndi-label { font-size:0.8rem; color:#999; min-width:70px; flex-shrink:0; }
+      .ndi-text-input {
+        flex:1; background:#111; border:1px solid #444; color:#fff; padding:3px 6px;
+        font-family:inherit; font-size:0.85rem; border-radius:3px;
+      }
+      .ndi-text-input:focus { border-color:#ff6600; outline:none; }
+
+      .ndi-select-group { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+      .ndi-select {
+        flex:1; background:#111; border:1px solid #444; color:#fff; padding:3px 4px;
+        font-family:inherit; font-size:0.8rem; border-radius:3px;
+      }
+      .ndi-select:focus { border-color:#ff6600; outline:none; }
+
+      .ndi-custom-res-row {
+        display:flex; align-items:center; gap:4px; margin-bottom:6px; padding-left:76px;
+      }
+      .ndi-num-input {
+        width:60px; background:#111; border:1px solid #444; color:#fff; padding:3px 4px;
+        font-family:inherit; font-size:0.8rem; border-radius:3px; text-align:center;
+      }
+      .ndi-num-input:focus { border-color:#ff6600; outline:none; }
+      .ndi-res-sep { color:#666; font-size:0.85rem; }
+
+      .ndi-sub-title {
+        font-size:0.8rem; color:#ff6600; font-weight:bold; margin:8px 0 4px 0;
+        border-top:1px solid #333; padding-top:6px;
+      }
+
+      .ndi-guide-btn {
+        display:block; width:100%; margin-top:10px; padding:8px;
+        background:rgba(255,102,0,0.15); border:1px solid #ff6600; color:#ff6600;
+        font-family:inherit; font-size:0.85rem; cursor:pointer; border-radius:4px;
+        transition:background 0.2s;
+      }
+      .ndi-guide-btn:hover { background:rgba(255,102,0,0.35); }
+
+      /* ------- SETUP GUIDE MODAL ------- */
+      .ndi-modal-overlay {
+        display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+        background:rgba(0,0,0,0.8); z-index:100; align-items:center; justify-content:center;
+      }
+      .ndi-modal {
+        background:#1a1a24; border:2px solid #ff6600; border-radius:8px;
+        max-width:600px; width:90%; max-height:80vh; overflow-y:auto; padding:24px;
+        position:relative;
+      }
+      .ndi-modal h2 { color:#ff6600; margin-top:0; font-size:1.1rem; }
+      .ndi-modal h3 { color:#00ffaa; font-size:0.95rem; margin-top:16px; }
+      .ndi-modal p, .ndi-modal li { color:#ccc; font-size:0.85rem; line-height:1.5; }
+      .ndi-modal ol { padding-left:20px; }
+      .ndi-modal code { background:#111; padding:1px 4px; border-radius:2px; color:#ff6600; }
+      .ndi-modal-close {
+        position:absolute; top:10px; right:14px; background:none; border:none;
+        color:#888; font-size:1.4rem; cursor:pointer;
+      }
+      .ndi-modal-close:hover { color:#fff; }
+      .ndi-modal .tip {
+        background:rgba(0,255,170,0.1); border-left:3px solid #00ffaa; padding:8px 12px;
+        margin:10px 0; font-size:0.8rem; color:#aad;
+      }
     </style>
   </head>
   <body>
@@ -27,6 +133,58 @@
     </div>
     <div id="synth-rack"></div>
     <div id="app"></div>
+
+    <!-- NDI Console Setup Guide Modal -->
+    <div id="ndi-setup-modal" class="ndi-modal-overlay">
+      <div class="ndi-modal">
+        <button id="ndi-modal-close" class="ndi-modal-close">✕</button>
+        <h2>🎛️ NDI Console Setup Guide</h2>
+        <p>This synthesizer broadcasts a real-time <strong>NDI® video stream</strong> on your local network. Any NDI-capable lighting console, media server, or pixel mapper can receive it.</p>
+
+        <h3>grandMA3 (onPC &amp; Console)</h3>
+        <ol>
+          <li>Navigate to <code>Menu → Patch</code>.</li>
+          <li>Insert a <strong>Bitmap</strong> fixture (or add a Video element in the Media pool).</li>
+          <li>On the Bitmap fixture encoder bar or Media window, set <strong>Input Mode → NDI</strong>.</li>
+          <li>Under <strong>Source</strong>, select <code>LZX-V Synth Output</code> (or the name you assigned above).</li>
+          <li>Assign the Bitmap fixture to your fixture layout view or 3D stage selection.</li>
+          <li>Adjust <strong>Bitmap Dimmer</strong>, Scale, and Position as needed.</li>
+        </ol>
+        <div class="tip">💡 <strong>Tip:</strong> Select a resolution that matches your fixture grid (e.g. "Matrix 256×256" for a 256-pixel LED array). Set <strong>Black Cutoff</strong> to 0.05 so background noise never causes LED fixtures to glow during blackout cues.</div>
+
+        <h3>Resolume Arena / Avenue</h3>
+        <ol>
+          <li>Open the <strong>Sources</strong> panel and navigate to <code>NDI</code>.</li>
+          <li>Select <code>LZX-V Synth Output</code> from the discovered sources.</li>
+          <li>Drag it onto a layer clip slot. The NDI feed will play in real time.</li>
+          <li>Use Resolume's pixel-mapping (DMX Output) to route to your fixtures.</li>
+        </ol>
+
+        <h3>MadMapper</h3>
+        <ol>
+          <li>Go to <code>Inputs → NDI</code> in the Media panel.</li>
+          <li>Select the synthesizer's NDI source.</li>
+          <li>Map the input to your fixture layout or DMX surface.</li>
+        </ol>
+
+        <h3>TouchDesigner</h3>
+        <ol>
+          <li>Add an <strong>NDI In</strong> TOP operator.</li>
+          <li>Set the <strong>Source Name</strong> to <code>LZX-V Synth Output</code>.</li>
+          <li>Route the TOP output to your rendering / pixel-mapping pipeline.</li>
+        </ol>
+
+        <h3>NDI Studio Monitor (Testing)</h3>
+        <ol>
+          <li>Open <strong>NDI Studio Monitor</strong> (free from <a href="https://ndi.video/tools/" target="_blank" style="color:#00ffaa;">ndi.video/tools</a>).</li>
+          <li>The synthesizer source will appear automatically on your LAN.</li>
+          <li>Click to view the live feed — useful for testing before patching into your console.</li>
+        </ol>
+
+        <div class="tip">💡 <strong>Network:</strong> Ensure the synthesizer PC and console are on the same subnet. NDI uses mDNS discovery (port 5353) and dynamic data ports (5960+). Firewalls must allow these.</div>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

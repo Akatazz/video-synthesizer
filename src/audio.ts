@@ -29,7 +29,7 @@ export class AudioEngine {
       return { bass: 0, mid: 0, high: 0 };
     }
 
-    this.analyser.getByteFrequencyData(this.dataArray);
+    this.analyser.getByteFrequencyData(this.dataArray as Uint8Array<ArrayBuffer>);
     
     const sampleRate = this.ctx.sampleRate;
     const nyquist = sampleRate / 2;
@@ -48,7 +48,7 @@ export class AudioEngine {
       let sum = 0;
       let count = 0;
       for (let i = startBin; i <= endBin; i++) {
-        sum += this.dataArray[i];
+        sum += this.dataArray![i];
         count++;
       }
       

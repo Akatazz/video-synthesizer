@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { AudioEngine } from './audio';
 import { buildSynthRack } from './ui';
+import { NdiEngine } from './ndi-engine';
 
 const init = () => {
   const container = document.getElementById('app');
@@ -23,6 +24,9 @@ const init = () => {
     preset: 'Classic Feedback'
   };
 
+  // NDI Engine — manages the WebSocket bridge and GPU readback pipeline
+  const ndiEngine = new NdiEngine();
+
   // Audio Engine
   const audio = new AudioEngine();
   const audioBtn = document.getElementById('btn-audio');
@@ -30,8 +34,8 @@ const init = () => {
     audioBtn.addEventListener('click', async () => {
       await audio.init();
       audioBtn.style.display = 'none';
-      // Build the hardware‑style rack once audio is active
-      buildSynthRack(synthParams);
+      // Build the hardware‑style rack once audio is active (pass NDI engine)
+      buildSynthRack(synthParams, ndiEngine);
     });
   }
 
@@ -209,6 +213,9 @@ const init = () => {
     renderer.setRenderTarget(targetB);
     renderer.render(feedbackScene, camera);
 
+    // ---- NDI: capture the synth output and send to the bridge ----
+    ndiEngine.renderAndSend(renderer, targetB.texture);
+
     screenMaterial.uniforms.u_texture.value = targetB.texture;
     renderer.setRenderTarget(null);
     renderer.render(screenScene, camera);
@@ -226,6 +233,15 @@ const init = () => {
     targetB.setSize(w, h);
     feedbackMaterial.uniforms.u_resolution.value.set(w, h);
   });
+
+  // Wire up the setup-guide modal close button
+  const modalClose = document.getElementById('ndi-modal-close');
+  if (modalClose) {
+    modalClose.addEventListener('click', () => {
+      const modal = document.getElementById('ndi-setup-modal');
+      if (modal) modal.style.display = 'none';
+    });
+  }
 };
 
 init();
