@@ -157,7 +157,9 @@ public:
     std::string status() { std::lock_guard lock(gate); return message; }
     void start(const std::string& name, const std::string& path) {
         stop();
-        auto sender = std::make_unique<NdiSender>(NdiRuntime::load(path),name);
+        std::unique_ptr<NdiSender> sender;
+        try { sender = std::make_unique<NdiSender>(NdiRuntime::load(path),name); }
+        catch (const std::exception& error) { std::lock_guard lock(gate); message = std::string("NDI unavailable: ")+error.what(); throw; }
         running = true;
         previous = {};
         message = "NDI sending · waiting for receivers";

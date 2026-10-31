@@ -30,6 +30,15 @@ jobs:
           dotnet-version: '10.0.x'
       - run: dotnet run --project apps/windows/VideoSynthesizer.Checks -c Release
       - run: dotnet build apps/windows/VideoSynthesizer -c Release
+      - name: Obtain existing project dependency's NDI runtime for interoperability checks
+        shell: bash
+        run: |
+          mkdir -p artifacts/ndi
+          npm pack @grandi/win32-x64@2.0.2 --pack-destination artifacts/ndi
+          tar -xzf artifacts/ndi/grandi-win32-x64-2.0.2.tgz -C artifacts/ndi
+      - name: Verify real NDI sender and receiver
+        shell: pwsh
+        run: dotnet run --project apps/windows/VideoSynthesizer.Checks -c Release -- contracts/presets/classic-feedback.json (Join-Path $PWD 'artifacts/ndi/package/Processing.NDI.Lib.x64.dll')
       - run: dotnet publish apps/windows/VideoSynthesizer -c Release -r win-x64 --self-contained true -o artifacts/windows
       - uses: actions/upload-artifact@v4
         with:
@@ -57,10 +66,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev nlohmann-json3-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good xvfb
+      - run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev nlohmann-json3-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good libavahi-client3 avahi-daemon xvfb
       - run: cmake -S apps/linux -B apps/linux/build -DCMAKE_BUILD_TYPE=Release
       - run: cmake --build apps/linux/build --parallel
       - run: ctest --test-dir apps/linux/build --output-on-failure
+      - name: Obtain existing project dependency's NDI runtime for interoperability checks
+        run: |
+          mkdir -p artifacts/ndi
+          npm pack @grandi/linux-x64@2.0.2 --pack-destination artifacts/ndi
+          tar -xzf artifacts/ndi/grandi-linux-x64-2.0.2.tgz -C artifacts/ndi
+          sudo systemctl start avahi-daemon
+      - name: Verify real NDI sender and receiver
+        run: apps/linux/build/synth-checks contracts/presets/classic-feedback.json "$(find "$PWD/artifacts/ndi/package" -name 'libndi.so*' -type f | head -1)"
       - name: Launch GTK preview
         run: timeout 30s xvfb-run -a apps/linux/build/video-synthesizer --smoke-test
   android:

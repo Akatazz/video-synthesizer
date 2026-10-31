@@ -17,7 +17,9 @@ public sealed class NdiOutput : IDisposable
     public void Start(string name, string? path)
     {
         Stop();
-        var sender = new NdiSender(NdiRuntime.Load(path), name);
+        NdiSender sender;
+        try { sender = new NdiSender(NdiRuntime.Load(path), name); }
+        catch (Exception error) { status = $"NDI unavailable: {error.Message}"; throw; }
         var pending = new BlockingCollection<Frame>(1);
         queue = pending;
         running = true;
