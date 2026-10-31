@@ -1,23 +1,38 @@
 # LZX-V Modular Video Synthesizer
 
-A real-time, audio-reactive video synthesizer built with **Three.js**, **WebGL / GLSL**, and **Web Audio API**.
+A modular video synthesizer with an existing **TypeScript/WebGL** browser app
+and independent native applications under development.
+
+[![CI](https://github.com/Akatazz/video-synthesizer/actions/workflows/ci.yml/badge.svg)](https://github.com/Akatazz/video-synthesizer/actions/workflows/ci.yml)
+[GitHub repository](https://github.com/Akatazz/video-synthesizer)
+
+- **Windows:** [C# / WPF application](apps/windows/README.md), with a CPU synthesis preview, presets, and PNG export.
+- **macOS:** [SwiftUI / Metal Xcode target](apps/apple/README.md), with native controls, GPU feedback, and presets.
+- **iOS / iPadOS:** [Separate SwiftUI / Metal app target](apps/apple/README.md).
+- **Linux:** planned independent C++ / GTK application.
+- **Android:** planned independent Kotlin / Android SDK application.
+
+Native applications are early previews. Audio and NDI currently belong to the
+browser implementation; native feature parity remains in progress. See
+[migration status](MIGRATION_STATUS.md), [system specification](SYSTEM_SPEC.md),
+and the [native preset contract](contracts/README.md).
 
 Inspired by the analog video synthesis world — LZX Industries, Eurorack video modules, and classic video feedback — this project emulates modular patching, oscillators, and signal routing entirely in the browser.
 
 ![screenshot](https://img.shields.io/badge/status-alpha-orange)
 
-## ✨ Features
+## ✨ Browser Features
 
-| Module | Description |
-|--------|-------------|
-| **Ping-Pong Feedback Loop** | Dual WebGL `RenderTarget` FBO architecture. Each frame feeds back into the next through a custom GLSL pipeline. |
-| **Cellular Automaton** | Gray-Scott reaction-diffusion model running on the GPU via a 3×3 Laplacian convolution matrix. |
-| **Fractal Generator** | Real-time Julia Set computation in the complex domain (`Z² + C`). The `C` parameter is exposed as a knob and audio-reactive. |
-| **Clifford Attractor LFO** | A strange-attractor function modulates UV displacement, creating organic vortex patterns. |
-| **Audio FFT Engine** | Microphone input is analysed via Web Audio `AnalyserNode` (512-point FFT) and split into Bass / Mid / High bands. |
-| **CV Patching** | Audio bands can be routed (patched) to modulate any synthesis parameter — oscillator rate, fractal morph, cell feed — just like a real Eurorack. |
-| **Hardware-Style UI** | Rotary knobs, sliders, and module sections that emulate the look and feel of real video synthesis hardware. |
-| **NDI® Broadcaster** | Real-time NDI 6 output for lighting consoles, media servers, and pixel mappers. One-click broadcast with zero external tools. |
+| Module                      | Description                                                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Ping-Pong Feedback Loop** | Dual WebGL `RenderTarget` FBO architecture. Each frame feeds back into the next through a custom GLSL pipeline.                                  |
+| **Cellular Automaton**      | Gray-Scott reaction-diffusion model running on the GPU via a 3×3 Laplacian convolution matrix.                                                   |
+| **Fractal Generator**       | Real-time Julia Set computation in the complex domain (`Z² + C`). The `C` parameter is exposed as a knob and audio-reactive.                     |
+| **Clifford Attractor LFO**  | A strange-attractor function modulates UV displacement, creating organic vortex patterns.                                                        |
+| **Audio FFT Engine**        | Microphone input is analysed via Web Audio `AnalyserNode` (512-point FFT) and split into Bass / Mid / High bands.                                |
+| **CV Patching**             | Audio bands can be routed (patched) to modulate any synthesis parameter — oscillator rate, fractal morph, cell feed — just like a real Eurorack. |
+| **Hardware-Style UI**       | Rotary knobs, sliders, and module sections that emulate the look and feel of real video synthesis hardware.                                      |
+| **NDI® Broadcaster**        | Real-time NDI 6 output for lighting consoles, media servers, and pixel mappers. One-click broadcast with zero external tools.                    |
 
 ## 🎛️ NDI Output for Lighting Consoles & Pixel Mapping
 
@@ -53,7 +68,7 @@ git clone https://github.com/Akatazz/video-synthesizer.git
 cd video-synthesizer
 
 # Install
-npm install
+npm ci
 
 # Run (includes NDI bridge)
 npm run dev
@@ -95,6 +110,13 @@ index.html       — Entry point with dark-theme UI chrome & setup guide modal
 - [ ] Embed into Lumos Portfolio (Astro)
 - [ ] Native Apple (Metal / Swift) port
 - [ ] Native Android (Vulkan / Kotlin) port
+
+## Contribution
+
+Read [CODING_GUIDELINES.md](CODING_GUIDELINES.md). For the browser application,
+run `npm ci`, `npm run lint`, `npm run format:check`, and `npm run build`.
+Native build and verification commands are in each platform's README. Submit
+changes in a pull request against `master`, the existing default branch.
 
 ## 📄 License
 

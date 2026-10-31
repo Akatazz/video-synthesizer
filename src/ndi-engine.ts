@@ -26,13 +26,13 @@ export interface NdiResolutionPreset {
 }
 
 export const NDI_RESOLUTION_PRESETS: NdiResolutionPreset[] = [
-  { label: 'Matrix 512×512',     width: 512,  height: 512  },
-  { label: 'Matrix 256×256',     width: 256,  height: 256  },
-  { label: 'Matrix 128×128',     width: 128,  height: 128  },
-  { label: 'Linear 512×64',      width: 512,  height: 64   },
-  { label: 'Wide 1024×128',      width: 1024, height: 128  },
-  { label: 'Full HD 1920×1080',  width: 1920, height: 1080 },
-  { label: 'HD 1280×720',        width: 1280, height: 720  },
+  { label: 'Matrix 512×512', width: 512, height: 512 },
+  { label: 'Matrix 256×256', width: 256, height: 256 },
+  { label: 'Matrix 128×128', width: 128, height: 128 },
+  { label: 'Linear 512×64', width: 512, height: 64 },
+  { label: 'Wide 1024×128', width: 1024, height: 128 },
+  { label: 'Full HD 1920×1080', width: 1920, height: 1080 },
+  { label: 'HD 1280×720', width: 1280, height: 720 },
 ];
 
 export const NDI_FPS_OPTIONS = [15, 25, 30, 60] as const;
@@ -40,12 +40,12 @@ export const NDI_FPS_OPTIONS = [15, 25, 30, 60] as const;
 export interface NdiParams {
   enabled: boolean;
   streamName: string;
-  presetIndex: number;   // index into NDI_RESOLUTION_PRESETS, -1 = custom
+  presetIndex: number; // index into NDI_RESOLUTION_PRESETS, -1 = custom
   customWidth: number;
   customHeight: number;
   fps: number;
-  blackCutoff: number;   // 0.0 – 0.25
-  gamma: number;         // 0.5 – 2.5
+  blackCutoff: number; // 0.0 – 0.25
+  gamma: number; // 0.5 – 2.5
   channelMode: ChannelMode;
   alphaMode: AlphaMode;
 }
@@ -173,11 +173,11 @@ export class NdiEngine {
     // Build the lighting post-process scene
     this.lightingMaterial = new THREE.ShaderMaterial({
       uniforms: {
-        u_source:      { value: null },
+        u_source: { value: null },
         u_blackCutoff: { value: this.params.blackCutoff },
-        u_gamma:       { value: this.params.gamma },
+        u_gamma: { value: this.params.gamma },
         u_channelMode: { value: 0 },
-        u_alphaMode:   { value: 0 },
+        u_alphaMode: { value: 0 },
       },
       vertexShader: LIGHTING_VERTEX,
       fragmentShader: LIGHTING_FRAGMENT,
@@ -362,7 +362,11 @@ export class NdiEngine {
 
   private _handleBridgeMessage(raw: string): void {
     let msg: any;
-    try { msg = JSON.parse(raw); } catch { return; }
+    try {
+      msg = JSON.parse(raw);
+    } catch {
+      return;
+    }
 
     switch (msg.type) {
       case 'status':
@@ -411,7 +415,7 @@ export class NdiEngine {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
       format: THREE.RGBAFormat,
-      type: THREE.UnsignedByteType,   // readPixels needs Uint8
+      type: THREE.UnsignedByteType, // readPixels needs Uint8
     });
 
     this.pixelBuffer = new Uint8Array(w * h * 4);
@@ -422,21 +426,31 @@ export class NdiEngine {
 
   private _channelModeInt(): number {
     switch (this.params.channelMode) {
-      case 'rgb':   return 0;
-      case 'luma':  return 1;
-      case 'red':   return 2;
-      case 'green': return 3;
-      case 'blue':  return 4;
-      default:      return 0;
+      case 'rgb':
+        return 0;
+      case 'luma':
+        return 1;
+      case 'red':
+        return 2;
+      case 'green':
+        return 3;
+      case 'blue':
+        return 4;
+      default:
+        return 0;
     }
   }
 
   private _alphaModeInt(): number {
     switch (this.params.alphaMode) {
-      case 'opaque':         return 0;
-      case 'luma-alpha':     return 1;
-      case 'luma-alpha-inv': return 2;
-      default:               return 0;
+      case 'opaque':
+        return 0;
+      case 'luma-alpha':
+        return 1;
+      case 'luma-alpha-inv':
+        return 2;
+      default:
+        return 0;
     }
   }
 

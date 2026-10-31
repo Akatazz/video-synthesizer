@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "oscFreq": 2,
+  "oscSpeed": 0.5,
+  "fractalZoom": 1.5,
+  "fractalDetail": 10,
+  "fractalMorph": 0.2,
+  "caFeed": 0.045,
+  "caKill": 0.06,
+  "feedbackMix": 0.95,
+  "colorShift": 0
+}

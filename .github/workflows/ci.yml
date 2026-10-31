@@ -1,0 +1,51 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run build
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet run --project apps/windows/VideoSynthesizer.Checks -c Release
+      - run: dotnet build apps/windows/VideoSynthesizer -c Release
+      - run: dotnet publish apps/windows/VideoSynthesizer -c Release -r win-x64 --self-contained true -o artifacts/windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: video-synthesizer-windows-x64
+          path: artifacts/windows
+  apple:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Swift preset contract
+        run: |
+          swiftc apps/apple/VideoSynthesizer/SynthParameters.swift apps/apple/Checks/CheckPresets.swift -o /tmp/check-presets
+          /tmp/check-presets contracts/presets/classic-feedback.json
+      - name: Build macOS application and Metal library
+        run: xcodebuild -project apps/apple/VideoSynthesizer.xcodeproj -scheme VideoSynthesizerMac -configuration Release -destination 'generic/platform=macOS' -derivedDataPath artifacts/apple CODE_SIGNING_ALLOWED=NO build
+      - name: Build iOS Simulator application and Metal library
+        run: xcodebuild -project apps/apple/VideoSynthesizer.xcodeproj -scheme VideoSynthesizerIOS -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath artifacts/apple CODE_SIGNING_ALLOWED=NO build
+      - name: Archive macOS app preserving bundle permissions
+        run: ditto -c -k --keepParent artifacts/apple/Build/Products/Release/VideoSynthesizerMac.app artifacts/VideoSynthesizerMac.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: video-synthesizer-macos-unsigned
+          path: artifacts/VideoSynthesizerMac.zip

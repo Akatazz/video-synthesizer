@@ -15,13 +15,13 @@ const init = () => {
     fractalDetail: 10,
     fractalMorph: 0.2,
     caFeed: 0.045,
-    caKill: 0.060,
+    caKill: 0.06,
     feedbackMix: 0.95,
     audioToOsc: 0.5,
     audioToFractal: 0.5,
     audioToCA: 0.2,
     colorShift: 0.0,
-    preset: 'Classic Feedback'
+    preset: 'Classic Feedback',
   };
 
   // NDI Engine — manages the WebSocket bridge and GPU readback pipeline
@@ -39,14 +39,22 @@ const init = () => {
     });
   }
 
-  const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+  const renderer = new THREE.WebGLRenderer({
+    antialias: false,
+    powerPreference: 'high-performance',
+  });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(window.devicePixelRatio);
   container.appendChild(renderer.domElement);
 
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-  const options = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, type: THREE.FloatType };
+  const options = {
+    minFilter: THREE.LinearFilter,
+    magFilter: THREE.LinearFilter,
+    format: THREE.RGBAFormat,
+    type: THREE.FloatType,
+  };
   let targetA = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, options);
   let targetB = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, options);
 
@@ -157,16 +165,16 @@ const init = () => {
       p_audioToOsc: { value: synthParams.audioToOsc },
       p_audioToFractal: { value: synthParams.audioToFractal },
       p_audioToCA: { value: synthParams.audioToCA },
-      p_colorShift: { value: synthParams.colorShift }
+      p_colorShift: { value: synthParams.colorShift },
     },
     vertexShader: `
       varying vec2 vUv;
       void main(){ vUv = uv; gl_Position = vec4(position,1.0); }
     `,
-    fragmentShader: feedbackShader
+    fragmentShader: feedbackShader,
   });
 
-  const feedbackPlane = new THREE.Mesh(new THREE.PlaneGeometry(2,2), feedbackMaterial);
+  const feedbackPlane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), feedbackMaterial);
   const feedbackScene = new THREE.Scene();
   feedbackScene.add(feedbackPlane);
 
@@ -181,9 +189,9 @@ const init = () => {
       uniform sampler2D u_texture;
       varying vec2 vUv;
       void main(){ gl_FragColor = texture2D(u_texture, vUv); }
-    `
+    `,
   });
-  const screenPlane = new THREE.Mesh(new THREE.PlaneGeometry(2,2), screenMaterial);
+  const screenPlane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), screenMaterial);
   screenScene.add(screenPlane);
 
   const animate = (time: number) => {
@@ -220,14 +228,17 @@ const init = () => {
     renderer.setRenderTarget(null);
     renderer.render(screenScene, camera);
 
-    const tmp = targetA; targetA = targetB; targetB = tmp;
+    const tmp = targetA;
+    targetA = targetB;
+    targetB = tmp;
     requestAnimationFrame(animate);
   };
 
   requestAnimationFrame(animate);
 
   window.addEventListener('resize', () => {
-    const w = window.innerWidth, h = window.innerHeight;
+    const w = window.innerWidth,
+      h = window.innerHeight;
     renderer.setSize(w, h);
     targetA.setSize(w, h);
     targetB.setSize(w, h);

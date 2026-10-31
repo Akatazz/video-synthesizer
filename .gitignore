@@ -2,3 +2,12 @@ node_modules/
 dist/
 .DS_Store
 *.local
+**/bin/
+**/obj/
+**/build/
+**/.build/
+**/.gradle/
+**/DerivedData/
+**/xcuserdata/
+**/local.properties
+artifacts/
