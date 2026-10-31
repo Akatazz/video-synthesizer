@@ -35,7 +35,7 @@ public sealed class NdiOutput : IDisposable
                     var pixels = LightingOutput.Process(frame.Pixels, frame.Width, frame.Height, frame.Settings);
                     sender.Send(pixels, frame.Settings.Width, frame.Settings.Height, frame.Settings.Fps);
                     var tally = sender.Telemetry();
-                    status = $"NDI sending · {frame.Settings.Width} × {frame.Settings.Height} · {frame.Settings.Fps} fps · {tally.Receivers} receiver(s) · {(tally.Program ? "PROGRAM" : tally.Preview ? "PREVIEW" : "No tally")}";
+                    status = $"NDI sending · {frame.Settings.Width} × {frame.Settings.Height} · {frame.Settings.Fps} fps target · {tally.Receivers} receiver(s) · {(tally.Program ? "PROGRAM" : tally.Preview ? "PREVIEW" : "No tally")}";
                 }
             }
             catch (Exception error) { status = $"NDI error: {error.Message}"; }

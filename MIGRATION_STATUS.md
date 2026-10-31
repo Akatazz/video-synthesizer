@@ -43,8 +43,10 @@ are required. Never commit access tokens.
       foreground transitions on physical hardware for each platform.
 - [x] Implement native desktop NDI senders and lighting calibration on Windows,
       macOS and Linux, with bounded workers and receiver/tally telemetry.
-- [ ] Verify desktop NDI CI results, Metal readback on hardware, cross-machine
-      discovery, output performance, and third-party lighting-console operation.
+- [x] Verify native NDI sender/receiver round trips and shared lighting fixtures
+      on Windows, macOS and Linux CI.
+- [ ] Verify Metal readback on hardware, cross-machine discovery, output
+      performance, and third-party lighting-console operation.
 - [ ] Obtain mobile NDI SDK libraries and implement iOS/Android NDI integration.
 - [ ] Camera/video input, patch graph, remaining synthesis modules, and parity checks.
 - [ ] GPU renderer for Windows; full-resolution output and performance measurements.
@@ -78,5 +80,14 @@ own their implementations. Shared contracts contain data and documented behavior
   C#, Accelerate/Swift, Kotlin, and GStreamer FFT checks classify calibrated
   bass/mid/high tones; Linux also runs a synthetic source through the actual
   capture pipeline. These checks do not establish live-device microphone behavior.
+- Native desktop NDI commit `a726797` passes all five CI jobs in
+  [run 41236080727](https://github.com/Akatazz/video-synthesizer/actions/runs/41236080727).
+  Each desktop sends and receives a generated 64×36 image through a real runtime
+  and checks dimensions, BGRA channels and vertical orientation. C# and C++ also
+  verify repeated worker start/send/stop; all three verify missing-runtime errors.
+- Windows NDI controls and missing-runtime behavior were visually inspected. A
+  configured runtime started 512×512 output from the UI. Windows then displayed
+  a firewall prompt; no firewall settings were changed, and the test process was
+  closed. The local NDI preview build is in `artifacts/windows-ndi`.
 
 The goal remains active until outstanding platform work and validation are done.

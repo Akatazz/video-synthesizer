@@ -14,6 +14,9 @@ Native applications exchange UTF-8 JSON presets with these required keys:
 The optional audio routing extension and microphone/DSP behavior are documented
 in [AUDIO.md](AUDIO.md). Original presets without these optional keys still load.
 
+Native desktop NDI setup, lighting fixtures and output semantics are documented
+in [NDI.md](NDI.md). NDI output settings are currently session controls.
+
 Unknown keys are ignored to allow future metadata. Reject missing keys, invalid
 JSON, non-finite values, and out-of-range numbers before changing live state.
 Load resets the feedback history. Save records parameters, not simulation state.
