@@ -23,6 +23,22 @@ struct CheckPresets {
         }
         for invalid in ["null", "{}", "{malformed}"] { expectRejection(Data(invalid.utf8)) }
         print("Swift preset contract checks passed.")
+        for bin in [2, 10, 64] {
+            let analysis = AudioAnalysis()
+            var levels = AudioBands()
+            for sample in 0..<512*40 {
+                levels = analysis.push(0.8 * sin(2 * .pi * Float(bin*sample) / 512), sampleRate: 32000)
+            }
+            let values = [levels.bass, levels.mid, levels.high]
+            let expected = bin == 2 ? 0 : bin == 10 ? 1 : 2
+            precondition(values[expected] > 0.75 && values[expected] < 0.85, "FFT tone amplitude or band is wrong")
+            for index in 0..<3 where index != expected { precondition(values[index] < 0.01, "FFT leaks into another band") }
+        }
+        let dc = AudioAnalysis()
+        var dcLevels = AudioBands()
+        for _ in 0..<1024 { dcLevels = dc.push(0.5, sampleRate: 44100) }
+        precondition(dcLevels == AudioBands(), "DC input must not modulate synthesis")
+        print("Swift native FFT checks passed.")
     }
 
     static func expectRejection(_ data: Data) {

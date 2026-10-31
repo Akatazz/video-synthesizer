@@ -16,6 +16,9 @@ public sealed record SynthParameters
     [JsonRequired] public float CaKill { get; init; } = 0.06f;
     [JsonRequired] public float FeedbackMix { get; init; } = 0.95f;
     [JsonRequired] public float ColorShift { get; init; }
+    public float AudioToOsc { get; init; } = 0.5f;
+    public float AudioToFractal { get; init; } = 0.5f;
+    public float AudioToCA { get; init; } = 0.2f;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -35,6 +38,9 @@ public sealed record SynthParameters
         Check(CaKill, 0, 0.1f, "Cell kill");
         Check(FeedbackMix, 0, 1, "Feedback mix");
         Check(ColorShift, 0, 1, "Color shift");
+        Check(AudioToOsc, 0, 1, "Mid to oscillator");
+        Check(AudioToFractal, 0, 1, "Bass to fractal");
+        Check(AudioToCA, 0, 1, "High to cell feed");
     }
 
     private static void Check(float value, float min, float max, string name)

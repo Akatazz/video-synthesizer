@@ -4,13 +4,14 @@ import SwiftUI
 #if os(macOS)
 struct MetalSurface: NSViewRepresentable {
     var parameters: SynthParameters
+    var bands: AudioBands
     var paused: Bool
     var resetID: Int
     var onError: (String) -> Void
     func makeCoordinator() -> SynthRenderer { SynthRenderer(onError: onError) }
     func makeNSView(context: Context) -> MTKView { context.coordinator.makeView() }
     func updateNSView(_ view: MTKView, context: Context) {
-        context.coordinator.update(parameters, paused: paused, resetID: resetID)
+        context.coordinator.update(parameters, bands: bands, paused: paused, resetID: resetID)
     }
     static func dismantleNSView(_ view: MTKView, coordinator: SynthRenderer) {
         view.isPaused = true
@@ -20,13 +21,14 @@ struct MetalSurface: NSViewRepresentable {
 #else
 struct MetalSurface: UIViewRepresentable {
     var parameters: SynthParameters
+    var bands: AudioBands
     var paused: Bool
     var resetID: Int
     var onError: (String) -> Void
     func makeCoordinator() -> SynthRenderer { SynthRenderer(onError: onError) }
     func makeUIView(context: Context) -> MTKView { context.coordinator.makeView() }
     func updateUIView(_ view: MTKView, context: Context) {
-        context.coordinator.update(parameters, paused: paused, resetID: resetID)
+        context.coordinator.update(parameters, bands: bands, paused: paused, resetID: resetID)
     }
     static func dismantleUIView(_ view: MTKView, coordinator: SynthRenderer) {
         view.isPaused = true
@@ -36,12 +38,14 @@ struct MetalSurface: UIViewRepresentable {
 #endif
 
 final class SynthRenderer: NSObject, MTKViewDelegate {
-    // Twelve scalar floats, in the same order as Uniforms in Synthesis.metal.
+    // Eighteen scalar floats, in the same order as Uniforms in Synthesis.metal.
     private struct Uniforms {
         var time, width, height, oscFreq, oscSpeed, zoom, detail, morph: Float
         var feed, kill, feedback, colorShift: Float
+        var audioToOsc, audioToFractal, audioToCA, bass, mid, high: Float
     }
     private var parameters = SynthParameters()
+    private var bands = AudioBands()
     private var paused = false
     private var resetID = -1
     private var clearPending = true
@@ -82,8 +86,9 @@ final class SynthRenderer: NSObject, MTKViewDelegate {
         return view
     }
 
-    func update(_ parameters: SynthParameters, paused: Bool, resetID: Int) {
+    func update(_ parameters: SynthParameters, bands: AudioBands, paused: Bool, resetID: Int) {
         self.parameters = parameters
+        self.bands = bands
         self.paused = paused
         if self.resetID != resetID { clearPending = true; self.resetID = resetID; time = 0 }
     }
@@ -137,7 +142,9 @@ final class SynthRenderer: NSObject, MTKViewDelegate {
             let p = parameters
             var uniforms = Uniforms(time: time, width: Float(width), height: Float(height),
                 oscFreq: p.oscFreq, oscSpeed: p.oscSpeed, zoom: p.fractalZoom, detail: p.fractalDetail,
-                morph: p.fractalMorph, feed: p.caFeed, kill: p.caKill, feedback: p.feedbackMix, colorShift: p.colorShift)
+                morph: p.fractalMorph, feed: p.caFeed, kill: p.caKill, feedback: p.feedbackMix, colorShift: p.colorShift,
+                audioToOsc: p.audioToOsc, audioToFractal: p.audioToFractal, audioToCA: p.audioToCA,
+                bass: bands.bass, mid: bands.mid, high: bands.high)
             guard let encoder = command.makeComputeCommandEncoder() else { fail("Could not start synthesis."); return }
             encoder.setComputePipelineState(compute)
             encoder.setTexture(history[readIndex], index: 0)

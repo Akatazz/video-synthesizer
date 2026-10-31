@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private bool paused, rendering, resetPending, closed;
     private double previousTime;
     private float synthTime;
+    private readonly MicrophoneCapture microphone = new();
 
     public MainWindow()
     {
@@ -28,7 +29,8 @@ public partial class MainWindow : Window
         BuildControls();
         timer.Tick += RenderFrame;
         Loaded += (_, _) => timer.Start();
-        Closed += (_, _) => { closed = true; timer.Stop(); };
+        Closed += (_, _) => { closed = true; timer.Stop(); microphone.Dispose(); };
+        Deactivated += (_, _) => StopMicrophone();
     }
 
     private void BuildControls()
@@ -43,6 +45,9 @@ public partial class MainWindow : Window
         AddSlider("Cell kill", 0, 0.1, parameters.CaKill, v => parameters = parameters with { CaKill = v });
         AddSlider("Feedback mix", 0, 1, parameters.FeedbackMix, v => parameters = parameters with { FeedbackMix = v });
         AddSlider("Color shift", 0, 1, parameters.ColorShift, v => parameters = parameters with { ColorShift = v });
+        AddSlider("Mid → oscillator", 0, 1, parameters.AudioToOsc, v => parameters = parameters with { AudioToOsc = v });
+        AddSlider("Bass → fractal", 0, 1, parameters.AudioToFractal, v => parameters = parameters with { AudioToFractal = v });
+        AddSlider("High → cell feed", 0, 1, parameters.AudioToCA, v => parameters = parameters with { AudioToCA = v });
     }
 
     private void AddSlider(string name, double min, double max, float value, Action<float> update)
@@ -58,6 +63,10 @@ public partial class MainWindow : Window
     private async void RenderFrame(object? sender, EventArgs e)
     {
         if (rendering || closed) return;
+        var bands = microphone.Bands;
+        AudioStatus.Text = microphone.Error ?? (microphone.IsRunning
+            ? $"Microphone live · Bass {bands.Bass:0.00} · Mid {bands.Mid:0.00} · High {bands.High:0.00}" : "Microphone off");
+        if (!microphone.IsRunning) MicrophoneButton.Content = "Enable microphone";
         double now = clock.Elapsed.TotalSeconds;
         double delta = Math.Min(now - previousTime, 0.1);
         previousTime = now;
@@ -70,7 +79,7 @@ public partial class MainWindow : Window
         var frameClock = Stopwatch.StartNew();
         try
         {
-            await Task.Run(() => engine.Render(time, snapshot));
+            await Task.Run(() => engine.Render(time, snapshot, bands));
             if (closed) return;
             bitmap.WritePixels(new Int32Rect(0, 0, engine.Width, engine.Height), engine.Pixels, engine.Width * 4, 0);
             Status.Text = $"Windows preview · {engine.Width} × {engine.Height} · {frameClock.Elapsed.TotalMilliseconds:0} ms/frame · { (paused ? "Paused" : "Live") }";
@@ -87,6 +96,20 @@ public partial class MainWindow : Window
     }
 
     private void Reset_Click(object sender, RoutedEventArgs e) => resetPending = true;
+
+    private void StopMicrophone()
+    {
+        microphone.Stop();
+        MicrophoneButton.Content = "Enable microphone";
+        AudioStatus.Text = "Microphone off";
+    }
+
+    private void Microphone_Click(object sender, RoutedEventArgs e)
+    {
+        if (microphone.IsRunning) { StopMicrophone(); return; }
+        try { microphone.Start(); MicrophoneButton.Content = "Disable microphone"; }
+        catch (Exception error) { AudioStatus.Text = $"Microphone unavailable: {error.Message}"; }
+    }
 
     private void Open_Click(object sender, RoutedEventArgs e)
     {

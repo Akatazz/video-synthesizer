@@ -40,23 +40,26 @@ public sealed class SynthEngine
         return float.Lerp(top, bottom, b);
     }
 
-    public void Render(float time, SynthParameters p)
+    public void Render(float time, SynthParameters p, AudioBands audio = default)
     {
         p.Validate();
         if (!float.IsFinite(time)) throw new ArgumentOutOfRangeException(nameof(time));
+        float speed = p.OscSpeed + audio.Mid * p.AudioToOsc * 5;
+        float morph = p.FractalMorph + audio.Bass * p.AudioToFractal * 0.5f;
+        float feed = p.CaFeed + audio.High * p.AudioToCA * 0.05f;
         Parallel.For(0, Height, y =>
         {
             for (int x = 0; x < Width; x++)
             {
                 float u = (x + 0.5f) / Width, v = (y + 0.5f) / Height;
-                float wx = MathF.Sin(v * p.OscFreq + time * p.OscSpeed) * 0.01f;
-                float wy = MathF.Cos(u * p.OscFreq + time * p.OscSpeed) * 0.01f;
+                float wx = MathF.Sin(v * p.OscFreq + time * speed) * 0.01f;
+                float wy = MathF.Cos(u * p.OscFreq + time * speed) * 0.01f;
                 float zx = (u + wx - 0.5f) * p.FractalZoom * 5;
                 float zy = (v + wy - 0.5f) * p.FractalZoom * 5;
                 float iterations = 0;
                 for (int i = 0; i < 30 && i < p.FractalDetail; i++)
                 {
-                    (zx, zy) = (zx * zx - zy * zy + p.FractalMorph,
+                    (zx, zy) = (zx * zx - zy * zy + morph,
                         2 * zx * zy + 0.156f + MathF.Sin(time * 0.1f) * 0.1f);
                     if (zx * zx + zy * zy > 4) break;
                     iterations++;
@@ -76,7 +79,7 @@ public sealed class SynthEngine
                             laplacian += Sample(u + (float)dx / Width, v + (float)dy / Height, channel) * weight;
                         }
                     float last = Sample(u + wx * 0.5f, v + wy * 0.5f, channel);
-                    float reaction = last + laplacian - last * last * last + p.CaFeed * (1 - last) - p.CaKill * last;
+                    float reaction = last + laplacian - last * last * last + feed * (1 - last) - p.CaKill * last;
                     if (channel == 0) reactionRed = reaction;
                     float phase = channel == 0 ? 0 : channel == 1 ? 0.33f : 0.67f;
                     float palette = 0.5f + 0.5f * MathF.Cos(6.28318f * (reactionRed + p.ColorShift + phase));

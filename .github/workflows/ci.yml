@@ -41,7 +41,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check Swift preset contract
         run: |
-          swiftc apps/apple/VideoSynthesizer/SynthParameters.swift apps/apple/Checks/CheckPresets.swift -o /tmp/check-presets
+          swiftc apps/apple/VideoSynthesizer/SynthParameters.swift apps/apple/VideoSynthesizer/AudioAnalysis.swift apps/apple/Checks/CheckPresets.swift -o /tmp/check-presets
           /tmp/check-presets contracts/presets/classic-feedback.json
       - name: Build macOS application and Metal library
         run: xcodebuild -project apps/apple/VideoSynthesizer.xcodeproj -scheme VideoSynthesizerMac -configuration Release -destination 'generic/platform=macOS' -derivedDataPath artifacts/apple CODE_SIGNING_ALLOWED=NO build

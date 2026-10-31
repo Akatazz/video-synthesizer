@@ -29,6 +29,8 @@ struct PresetDocument: FileDocument {
 }
 
 struct SynthView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var audio = MicrophoneInput()
     @State private var parameters = SynthParameters()
     @State private var paused = false
     @State private var resetID = 0
@@ -43,6 +45,7 @@ struct SynthView: View {
             HStack {
                 Button(paused ? "Resume" : "Pause") { paused.toggle() }
                 Button("Reset feedback") { resetID += 1 }
+                Button(audio.active || audio.requesting ? "Disable microphone" : "Enable microphone") { audio.toggle() }
                 Menu("Presets") {
                     Button("Open preset…") { importing = true }
                     Button("Save preset…") { exporting = true }
@@ -59,10 +62,17 @@ struct SynthView: View {
             #endif
             Text(paused ? "Paused" : "Live · Metal preview")
                 .font(.caption).foregroundStyle(.secondary)
+            Text(audio.status).font(.caption).foregroundStyle(.secondary)
+            if audio.active {
+                Text("Bass \(audio.levels.bass, specifier: "%.2f") · Mid \(audio.levels.mid, specifier: "%.2f") · High \(audio.levels.high, specifier: "%.2f")")
+                    .font(.caption.monospacedDigit())
+            }
         }
         .padding(24)
         .background(Color(red: 0.06, green: 0.08, blue: 0.10))
         .preferredColorScheme(.dark)
+        .onChange(of: scenePhase) { phase in if phase != .active { audio.stop() } }
+        .onDisappear { audio.stop() }
         #if os(macOS)
         .frame(minWidth: 860, minHeight: 580)
         #endif
@@ -85,7 +95,7 @@ struct SynthView: View {
     }
 
     private var surface: some View {
-        MetalSurface(parameters: parameters, paused: paused, resetID: resetID) { errorMessage = $0 }
+        MetalSurface(parameters: parameters, bands: audio.levels, paused: paused, resetID: resetID) { errorMessage = $0 }
             .aspectRatio(16.0 / 9.0, contentMode: .fit)
             .background(.black).clipShape(RoundedRectangle(cornerRadius: 8))
             .accessibilityLabel("Live synthesis preview")
@@ -103,6 +113,9 @@ struct SynthView: View {
                 control("Cell kill", \.caKill, 0...0.1)
                 control("Feedback mix", \.feedbackMix, 0...1)
                 control("Color shift", \.colorShift, 0...1)
+                control("Mid → oscillator", \.audioToOsc, 0...1)
+                control("Bass → fractal", \.audioToFractal, 0...1)
+                control("High → cell feed", \.audioToCA, 0...1)
             }.padding(.trailing, 8)
         }
     }

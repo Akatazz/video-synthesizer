@@ -59,6 +59,28 @@ var dryFrame = engine.Pixels.ToArray();
 engine.Render(1, dry);
 Require(dryFrame.SequenceEqual(engine.Pixels), "Dry output must be independent of history.");
 var preview = new SynthEngine(480, 270);
+foreach (int bin in new[] { 2, 10, 64 })
+{
+    var analyzer = new AudioAnalysis();
+    AudioBands measured = default;
+    for (int sample = 0; sample < 512 * 40; sample++)
+        measured = analyzer.Push(0.8f * MathF.Sin(2 * MathF.PI * bin * sample / 512), 32000);
+    float[] levels = [measured.Bass, measured.Mid, measured.High];
+    int expected = bin == 2 ? 0 : bin == 10 ? 1 : 2;
+    Require(levels[expected] > 0.75f && levels[expected] < 0.85f, "FFT tone amplitude or band is wrong.");
+    Require(levels.Where((_, index) => index != expected).All(value => value < 0.01f), "FFT leaks into an unrelated band.");
+}
+var dc = new AudioAnalysis();
+AudioBands silence = default;
+for (int sample = 0; sample < 1024; sample++) silence = dc.Push(0.5f, 44100);
+Require(silence == default, "DC input must not produce audio modulation.");
+var noRoutes = preset with { AudioToOsc = 0, AudioToFractal = 0, AudioToCA = 0 };
+engine.Reset(); engine.Render(1, noRoutes);
+var unmodulated = engine.Pixels.ToArray();
+engine.Reset(); engine.Render(1, noRoutes, new AudioBands(1, 1, 1));
+Require(unmodulated.SequenceEqual(engine.Pixels), "Zero routing must bypass audio modulation.");
+engine.Reset(); engine.Render(1, preset, new AudioBands(0.8f, 0.8f, 0.8f));
+Require(!first.SequenceEqual(engine.Pixels), "Audio modulation must affect synthesis.");
 var clock = Stopwatch.StartNew();
 for (int i = 0; i < 5; i++) preview.Render(i / 30f, preset);
 Console.WriteLine($"Preset and renderer checks passed. Preview average: {clock.Elapsed.TotalMilliseconds / 5:0.0} ms/frame.");

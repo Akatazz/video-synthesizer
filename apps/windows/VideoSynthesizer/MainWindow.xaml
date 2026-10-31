@@ -19,6 +19,7 @@
     <Button Content="Open preset…" Click="Open_Click"/>
     <Button Content="Save preset…" Click="Save_Click"/>
     <Button Content="Save image…" Click="Snapshot_Click"/>
+    <Button x:Name="MicrophoneButton" Content="Enable microphone" Click="Microphone_Click"/>
    </WrapPanel>
   </StackPanel>
   <Grid Grid.Row="1">
@@ -30,6 +31,9 @@
     <StackPanel x:Name="Controls" Margin="0,0,12,0"/>
    </ScrollViewer>
   </Grid>
-  <TextBlock Grid.Row="2" x:Name="Status" Text="Starting preview…" Margin="0,16,0,0" TextWrapping="Wrap" Foreground="#ACB8C4"/>
+  <StackPanel Grid.Row="2" Margin="0,16,0,0">
+   <TextBlock x:Name="Status" Text="Starting preview…" TextWrapping="Wrap" Foreground="#ACB8C4"/>
+   <TextBlock x:Name="AudioStatus" Text="Microphone off" TextWrapping="Wrap" Foreground="#ACB8C4"/>
+  </StackPanel>
  </Grid>
 </Window>
