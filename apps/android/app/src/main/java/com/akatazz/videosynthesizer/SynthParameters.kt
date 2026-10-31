@@ -1,6 +1,6 @@
 package com.akatazz.videosynthesizer
 
-import org.json.JSONObject
+import kotlinx.serialization.json.*
 
 data class SynthParameters(
     val oscFreq: Float = 2f,
@@ -32,9 +32,10 @@ data class SynthParameters(
 
     fun toJson(): String {
         validated()
-        val json = JSONObject().put("schemaVersion", 1)
-        values().forEachIndexed { index, value -> json.put(fields[index].key, value.toDouble()) }
-        return json.toString(2)
+        return buildJsonObject {
+            put("schemaVersion", 1)
+            values().forEachIndexed { index, value -> put(fields[index].key, value) }
+        }.toString()
     }
 
     companion object {
@@ -54,13 +55,13 @@ data class SynthParameters(
         private fun fromValues(v: FloatArray) = SynthParameters(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8])
 
         fun fromJson(text: String): SynthParameters {
-            val json = JSONObject(text)
-            val version = json.get("schemaVersion")
-            require(version is Number && version.toDouble() == 1.0) { "Unsupported preset version." }
+            val json = Json.parseToJsonElement(text).jsonObject
+            val version = json.getValue("schemaVersion").jsonPrimitive
+            require(!version.isString && version.intOrNull == 1) { "Unsupported preset version." }
             val values = fields.map {
-                val value = json.get(it.key)
-                require(value is Number) { "${it.label} must be a number." }
-                value.toFloat()
+                val value = json.getValue(it.key).jsonPrimitive
+                require(!value.isString) { "${it.label} must be a number." }
+                requireNotNull(value.floatOrNull) { "${it.label} must be a number." }
             }.toFloatArray()
             return fromValues(values).validated()
         }

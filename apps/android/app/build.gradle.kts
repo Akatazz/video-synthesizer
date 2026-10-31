@@ -23,6 +23,7 @@ android {
     sourceSets["test"].resources.srcDir("../../../contracts/presets")
 }
 dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250517")
 }

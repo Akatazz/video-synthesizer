@@ -25,5 +25,7 @@ class PresetTest {
         }
         assertThrows(Exception::class.java) { SynthParameters(oscFreq = Float.NaN).validated() }
         assertThrows(Exception::class.java) { SynthParameters.fromJson("{malformed}") }
+        assertThrows(Exception::class.java) { SynthParameters.fromJson(fixture().replace('"', '\'')) }
+        assertThrows(Exception::class.java) { SynthParameters.fromJson(fixture() + " trailing input") }
     }
 }
