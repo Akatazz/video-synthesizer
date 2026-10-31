@@ -1,4 +1,5 @@
 #include "synth.hpp"
+#include "ndi.hpp"
 #include <gtk/gtk.h>
 #include <fstream>
 #include <memory>
@@ -7,6 +8,10 @@ struct State {
     Parameters parameters;
     SynthEngine engine {480, 270};
     MicrophoneInput microphone;
+    NdiOutput ndi;
+    NdiSettings ndiSettings;
+    std::string ndiName = "LZX-V Synth Output (Linux)", ndiPath;
+    GtkWidget *ndiButton = nullptr, *ndiStatus = nullptr;
     GtkWidget *window = nullptr, *preview = nullptr, *status = nullptr;
     GtkWidget *audioStatus = nullptr, *microphoneButton = nullptr;
     std::array<GtkWidget*, 12> sliders {};
@@ -115,12 +120,19 @@ static gboolean tick(GtkWidget*, GdkFrameClock* clock, gpointer data) {
         gtk_label_set_text(GTK_LABEL(state->audioStatus), error.what());
         gtk_button_set_label(GTK_BUTTON(state->microphoneButton), "Enable microphone");
     }
-    if (state->paused && !state->reset) return G_SOURCE_CONTINUE;
+    if (state->paused && !state->reset) {
+        state->ndi.submit(state->engine.pixels,480,270,state->ndiSettings);
+        gtk_label_set_text(GTK_LABEL(state->ndiStatus),state->ndi.status().c_str());
+        return G_SOURCE_CONTINUE;
+    }
     if (state->reset) { state->engine.reset(); state->time = 0; state->reset = false; }
     else state->time += delta;
     try { state->engine.render(state->time, state->parameters, bands); }
     catch (const std::exception& error) { showError(state, error.what()); return G_SOURCE_REMOVE; }
     gtk_widget_queue_draw(state->preview);
+    state->ndi.submit(state->engine.pixels,480,270,state->ndiSettings);
+    gtk_label_set_text(GTK_LABEL(state->ndiStatus),state->ndi.status().c_str());
+    if (!state->ndi.active()) gtk_button_set_label(GTK_BUTTON(state->ndiButton),"Start NDI output");
     if (state->smoke && ++state->frames == 3)
         g_application_quit(G_APPLICATION(gtk_window_get_application(GTK_WINDOW(state->window))));
     return G_SOURCE_CONTINUE;
@@ -210,6 +222,83 @@ static void activate(GtkApplication* app, gpointer smoke) {
         }), state);
         gtk_box_append(GTK_BOX(controls), scale);
     }
+    auto* ndiHeading = gtk_label_new("NDI OUTPUT");
+    gtk_box_append(GTK_BOX(controls),ndiHeading);
+    gtk_box_append(GTK_BOX(controls),gtk_link_button_new_with_label("https://ndi.video","NDI® technology · ndi.video"));
+    auto addEntry = [&](const char* label, const char* value, const char* key, GCallback callback) {
+        gtk_box_append(GTK_BOX(controls),gtk_label_new(label));
+        auto* entry = gtk_entry_new();
+        gtk_editable_set_text(GTK_EDITABLE(entry),value);
+        g_object_set_data(G_OBJECT(entry),"setting",const_cast<char*>(key));
+        g_signal_connect(entry,"changed",callback,state);
+        gtk_box_append(GTK_BOX(controls),entry);
+    };
+    auto changeText = G_CALLBACK(+[](GtkEditable* entry, gpointer data) {
+        auto* s = static_cast<State*>(data);
+        s->ndi.stop();
+        std::string value = gtk_editable_get_text(entry);
+        std::string key = static_cast<const char*>(g_object_get_data(G_OBJECT(entry),"setting"));
+        if (key == "name") s->ndiName = value; else s->ndiPath = value;
+        gtk_button_set_label(GTK_BUTTON(s->ndiButton),"Start NDI output");
+    });
+    addEntry("NDI source name",state->ndiName.c_str(),"name",changeText);
+    addEntry("NDI runtime path (optional)","","path",changeText);
+    auto addChoice = [&](const char* label, const char* const* choices, guint selected, const char* key) {
+        gtk_box_append(GTK_BOX(controls),gtk_label_new(label));
+        auto* choice = gtk_drop_down_new_from_strings(choices);
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(choice),selected);
+        g_object_set_data(G_OBJECT(choice),"setting",const_cast<char*>(key));
+        g_signal_connect(choice,"notify::selected",G_CALLBACK(+[](GObject* control, GParamSpec*, gpointer data) {
+            auto* s = static_cast<State*>(data);
+            int selected = gtk_drop_down_get_selected(GTK_DROP_DOWN(control));
+            std::string key = static_cast<const char*>(g_object_get_data(control,"setting"));
+            if (key == "channel") s->ndiSettings.channel = selected;
+            else if (key == "alpha") s->ndiSettings.alpha = selected;
+            else {
+                s->ndi.stop();
+                if (key == "fps") s->ndiSettings.fps = selected == 0 ? 15 : selected == 1 ? 25 : 30;
+                else {
+                    constexpr int widths[] {128,256,512,512,1024,1280,1920};
+                    constexpr int heights[] {128,256,512,64,128,720,1080};
+                    if (selected >= 0 && selected < 7) { s->ndiSettings.width = widths[selected]; s->ndiSettings.height = heights[selected]; }
+                }
+                gtk_button_set_label(GTK_BUTTON(s->ndiButton),"Start NDI output");
+            }
+        }),state);
+        gtk_box_append(GTK_BOX(controls),choice);
+    };
+    const char* resolutions[] {"128 × 128","256 × 256","512 × 512","512 × 64","1024 × 128","1280 × 720","1920 × 1080",nullptr};
+    const char* rates[] {"15 fps","25 fps","30 fps",nullptr};
+    const char* channels[] {"RGB","Luma","Red","Green","Blue",nullptr};
+    const char* alphas[] {"Opaque","Luma alpha","Inverted luma alpha",nullptr};
+    addChoice("NDI resolution",resolutions,2,"resolution");
+    addChoice("NDI frame rate",rates,2,"fps");
+    addChoice("NDI channels",channels,0,"channel");
+    addChoice("NDI alpha",alphas,0,"alpha");
+    for (const char* key : {"cutoff","gamma"}) {
+        bool cutoff = std::string(key) == "cutoff";
+        gtk_box_append(GTK_BOX(controls),gtk_label_new(cutoff ? "NDI black cutoff" : "NDI gamma"));
+        auto* scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,cutoff ? 0 : 0.5,cutoff ? 0.25 : 2.5,0.001);
+        gtk_scale_set_draw_value(GTK_SCALE(scale),true);
+        gtk_scale_set_digits(GTK_SCALE(scale),3);
+        gtk_range_set_value(GTK_RANGE(scale),cutoff ? 0.02 : 1);
+        g_object_set_data(G_OBJECT(scale),"setting",const_cast<char*>(key));
+        g_signal_connect(scale,"value-changed",G_CALLBACK(+[](GtkRange* range, gpointer data) {
+            auto* s = static_cast<State*>(data);
+            std::string key = static_cast<const char*>(g_object_get_data(G_OBJECT(range),"setting"));
+            if (key == "cutoff") s->ndiSettings.cutoff = float(gtk_range_get_value(range));
+            else s->ndiSettings.gamma = float(gtk_range_get_value(range));
+        }),state);
+        gtk_box_append(GTK_BOX(controls),scale);
+    }
+    state->ndiButton = gtk_button_new_with_label("Start NDI output");
+    g_signal_connect(state->ndiButton,"clicked",G_CALLBACK(+[](GtkButton* button, gpointer data) {
+        auto* s = static_cast<State*>(data);
+        if (s->ndi.active()) { s->ndi.stop(); gtk_button_set_label(button,"Start NDI output"); return; }
+        try { s->ndiSettings.validate(); s->ndi.start(s->ndiName,s->ndiPath); gtk_button_set_label(button,"Stop NDI output"); }
+        catch (const std::exception& error) { gtk_label_set_text(GTK_LABEL(s->ndiStatus),error.what()); }
+    }),state);
+    gtk_box_append(GTK_BOX(controls),state->ndiButton);
     state->status = gtk_label_new("Linux native preview · 480 × 270");
     gtk_label_set_xalign(GTK_LABEL(state->status), 0);
     gtk_label_set_wrap(GTK_LABEL(state->status), true);
@@ -218,6 +307,10 @@ static void activate(GtkApplication* app, gpointer smoke) {
     gtk_label_set_xalign(GTK_LABEL(state->audioStatus), 0);
     gtk_label_set_wrap(GTK_LABEL(state->audioStatus), true);
     gtk_box_append(GTK_BOX(root), state->audioStatus);
+    state->ndiStatus = gtk_label_new("NDI off");
+    gtk_label_set_xalign(GTK_LABEL(state->ndiStatus),0);
+    gtk_label_set_wrap(GTK_LABEL(state->ndiStatus),true);
+    gtk_box_append(GTK_BOX(root),state->ndiStatus);
     gtk_widget_add_tick_callback(state->window, tick, state, nullptr);
     gtk_window_present(GTK_WINDOW(state->window));
 }

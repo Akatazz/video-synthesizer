@@ -1,4 +1,5 @@
 #include "synth.hpp"
+#include "ndi_checks.hpp"
 #include <fstream>
 #include <iostream>
 #include <set>
@@ -10,7 +11,7 @@ static void require(bool value, const char* message) {
 }
 int main(int argc, char** argv) {
     gst_init(nullptr, nullptr);
-    require(argc == 2, "Provide the canonical fixture path.");
+    require(argc >= 2, "Provide the canonical fixture path.");
     std::ifstream input(argv[1]);
     nlohmann::json json;
     input >> json;
@@ -76,4 +77,6 @@ int main(int argc, char** argv) {
     capture.stop();
     require(!capture.active() && capture.poll().mid == 0, "Stopping audio must clear levels.");
     std::cout << "Linux preset and renderer checks passed.\n";
+    checkLighting();
+    if (argc > 2) { checkNdiRoundTrip(argv[2]); std::cout << "Real NDI round trip passed.\n"; }
 }
