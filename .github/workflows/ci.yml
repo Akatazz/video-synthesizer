@@ -1,0 +1,141 @@
+name: CI
+on:
+  push:
+    branches: [master]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run build
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet run --project apps/windows/VideoSynthesizer.Checks -c Release
+      - run: dotnet build apps/windows/VideoSynthesizer -c Release
+      - name: Verify hidden WPF synthesis
+        run: dotnet run --project apps/windows/VideoSynthesizer -c Release --no-build -- --background-smoke-test
+      - name: Obtain existing project dependency's NDI runtime for interoperability checks
+        shell: bash
+        run: |
+          mkdir -p artifacts/ndi
+          npm pack @grandi/win32-x64@2.0.2 --pack-destination artifacts/ndi
+          tar -xzf artifacts/ndi/grandi-win32-x64-2.0.2.tgz -C artifacts/ndi
+      - name: Verify real NDI sender and receiver
+        shell: pwsh
+        run: dotnet run --project apps/windows/VideoSynthesizer.Checks -c Release -- contracts/presets/classic-feedback.json (Join-Path $PWD 'artifacts/ndi/package/Processing.NDI.Lib.x64.dll')
+      - name: Verify hidden WPF NDI output
+        shell: pwsh
+        run: dotnet run --project apps/windows/VideoSynthesizer -c Release --no-build -- --background-smoke-test (Join-Path $PWD 'artifacts/ndi/package/Processing.NDI.Lib.x64.dll')
+      - run: dotnet publish apps/windows/VideoSynthesizer -c Release -r win-x64 --self-contained true -o artifacts/windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: video-synthesizer-windows-x64
+          path: artifacts/windows
+  apple:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Swift preset contract
+        run: |
+          clang -c apps/apple/VideoSynthesizer/NDIInterop.c -o /tmp/ndi-interop.o
+          swiftc -import-objc-header apps/apple/VideoSynthesizer/NDIInterop.h apps/apple/VideoSynthesizer/SynthParameters.swift apps/apple/VideoSynthesizer/AudioAnalysis.swift apps/apple/VideoSynthesizer/NdiOutput.swift apps/apple/Checks/CheckPresets.swift /tmp/ndi-interop.o -o /tmp/check-presets
+          /tmp/check-presets contracts/presets/classic-feedback.json
+      - name: Obtain existing project dependency's NDI runtime and verify interoperability
+        run: |
+          mkdir -p artifacts/ndi
+          npm pack @grandi/darwin-arm64@2.0.2 --pack-destination artifacts/ndi
+          tar -xzf artifacts/ndi/grandi-darwin-arm64-2.0.2.tgz -C artifacts/ndi
+          /tmp/check-presets contracts/presets/classic-feedback.json "$PWD/artifacts/ndi/package/libndi.dylib"
+      - name: Build macOS application and Metal library
+        run: xcodebuild -project apps/apple/VideoSynthesizer.xcodeproj -scheme VideoSynthesizerMac -configuration Release -destination 'generic/platform=macOS' -derivedDataPath artifacts/apple CODE_SIGNING_ALLOWED=NO build
+      - name: Verify background Metal rendering when a GPU is available
+        timeout-minutes: 3
+        run: |
+          swiftc -g -import-objc-header apps/apple/VideoSynthesizer/NDIInterop.h apps/apple/VideoSynthesizer/SynthParameters.swift apps/apple/VideoSynthesizer/AudioAnalysis.swift apps/apple/VideoSynthesizer/NdiOutput.swift apps/apple/VideoSynthesizer/MetalSurface.swift apps/apple/Checks/CheckBackgroundRendering.swift /tmp/ndi-interop.o -o /tmp/check-background-rendering
+          set +e
+          /tmp/check-background-rendering "$PWD/artifacts/apple/Build/Products/Release/VideoSynthesizerMac.app/Contents/Resources/default.metallib" "$PWD/artifacts/ndi/package/libndi.dylib"
+          check_status=$?
+          if [ "$check_status" -ne 0 ]; then
+            lldb --batch -o run -o 'thread backtrace all' -- /tmp/check-background-rendering "$PWD/artifacts/apple/Build/Products/Release/VideoSynthesizerMac.app/Contents/Resources/default.metallib" "$PWD/artifacts/ndi/package/libndi.dylib"
+          fi
+          exit "$check_status"
+      - name: Build iOS Simulator application and Metal library
+        run: xcodebuild -project apps/apple/VideoSynthesizer.xcodeproj -scheme VideoSynthesizerIOS -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath artifacts/apple CODE_SIGNING_ALLOWED=NO build
+      - name: Archive macOS app preserving bundle permissions
+        run: ditto -c -k --keepParent artifacts/apple/Build/Products/Release/VideoSynthesizerMac.app artifacts/VideoSynthesizerMac.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: video-synthesizer-macos-unsigned
+          path: artifacts/VideoSynthesizerMac.zip
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev nlohmann-json3-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good libavahi-client3 avahi-daemon xvfb
+      - run: cmake -S apps/linux -B apps/linux/build -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build apps/linux/build --parallel
+      - run: ctest --test-dir apps/linux/build --output-on-failure
+      - name: Obtain existing project dependency's NDI runtime for interoperability checks
+        run: |
+          mkdir -p artifacts/ndi
+          npm pack @grandi/linux-x64@2.0.2 --pack-destination artifacts/ndi
+          tar -xzf artifacts/ndi/grandi-linux-x64-2.0.2.tgz -C artifacts/ndi
+          sudo systemctl start avahi-daemon
+      - name: Verify real NDI sender and receiver
+        run: apps/linux/build/synth-checks contracts/presets/classic-feedback.json "$PWD/artifacts/ndi/package/libndi.so.6"
+      - name: Launch GTK preview
+        run: timeout 30s xvfb-run -a apps/linux/build/video-synthesizer --smoke-test
+      - name: Verify unmapped GTK synthesis
+        run: timeout 30s xvfb-run -a apps/linux/build/video-synthesizer --background-smoke-test
+      - name: Verify unmapped GTK NDI output
+        run: timeout 30s xvfb-run -a apps/linux/build/video-synthesizer --background-ndi-smoke-test "$PWD/artifacts/ndi/package/libndi.so.6"
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Check presets and build APK
+        working-directory: apps/android
+        run: ./gradlew testDebugUnitTest assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: video-synthesizer-android-debug
+          path: apps/android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          disable-animations: true
+          script: cd apps/android && ./gradlew connectedDebugAndroidTest

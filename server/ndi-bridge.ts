@@ -160,7 +160,11 @@ export class NdiBridge {
           this._createSender();
         }
 
-        this._sendJson(ws, { type: 'status', state: this.sender ? 'broadcasting' : 'idle', config: this.currentConfig });
+        this._sendJson(ws, {
+          type: 'status',
+          state: this.sender ? 'broadcasting' : 'idle',
+          config: this.currentConfig,
+        });
         break;
       }
 
@@ -184,7 +188,9 @@ export class NdiBridge {
     });
     this.sender = sender;
 
-    console.log(`[NDI Bridge] Sender created: "${sender.sourceName()}" @ ${this.currentConfig.width}×${this.currentConfig.height} ${this.currentConfig.fps}fps`);
+    console.log(
+      `[NDI Bridge] Sender created: "${sender.sourceName()}" @ ${this.currentConfig.width}×${this.currentConfig.height} ${this.currentConfig.fps}fps`,
+    );
 
     // Start tally / receiver polling
     this.tallyInterval = setInterval(() => {
@@ -237,8 +243,8 @@ export class NdiBridge {
       frameRateN: fps,
       frameRateD: 1,
       pictureAspectRatio: width / height,
-      fourCC: 1094862674 as any,   // FourCC.RGBA
-      frameFormatType: 1 as any,   // FrameType.Progressive
+      fourCC: 1094862674 as any, // FourCC.RGBA
+      frameFormatType: 1 as any, // FrameType.Progressive
       lineStrideBytes: width * 4,
       data: data,
     });
@@ -271,11 +277,11 @@ export class NdiBridge {
 /*  Standalone entry point                                             */
 /* ------------------------------------------------------------------ */
 
-const isMain = process.argv[1] && (
-  process.argv[1].endsWith('ndi-bridge.ts') ||
-  process.argv[1].endsWith('ndi-bridge.js') ||
-  process.argv[1].endsWith('ndi-bridge.mjs')
-);
+const isMain =
+  process.argv[1] &&
+  (process.argv[1].endsWith('ndi-bridge.ts') ||
+    process.argv[1].endsWith('ndi-bridge.js') ||
+    process.argv[1].endsWith('ndi-bridge.mjs'));
 
 if (isMain) {
   const bridge = new NdiBridge();
