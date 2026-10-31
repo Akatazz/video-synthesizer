@@ -6,8 +6,10 @@
 struct State {
     Parameters parameters;
     SynthEngine engine {480, 270};
+    MicrophoneInput microphone;
     GtkWidget *window = nullptr, *preview = nullptr, *status = nullptr;
-    std::array<GtkWidget*, 9> sliders {};
+    GtkWidget *audioStatus = nullptr, *microphoneButton = nullptr;
+    std::array<GtkWidget*, 12> sliders {};
     bool paused = false, reset = true, smoke = false;
     float time = 0;
     gint64 previous = 0, lastFrame = 0;
@@ -101,10 +103,22 @@ static gboolean tick(GtkWidget*, GdkFrameClock* clock, gpointer data) {
     float delta = state->previous ? std::min((now - state->previous) / 1e6f, 0.1f) : 0;
     state->previous = now;
     state->lastFrame = now;
+    AudioBands bands;
+    try {
+        bands = state->microphone.poll();
+        if (state->microphone.active()) {
+            char text[160];
+            g_snprintf(text, sizeof(text), "Microphone live · Bass %.2f · Mid %.2f · High %.2f", bands.bass, bands.mid, bands.high);
+            gtk_label_set_text(GTK_LABEL(state->audioStatus), text);
+        }
+    } catch (const std::exception& error) {
+        gtk_label_set_text(GTK_LABEL(state->audioStatus), error.what());
+        gtk_button_set_label(GTK_BUTTON(state->microphoneButton), "Enable microphone");
+    }
     if (state->paused && !state->reset) return G_SOURCE_CONTINUE;
     if (state->reset) { state->engine.reset(); state->time = 0; state->reset = false; }
     else state->time += delta;
-    try { state->engine.render(state->time, state->parameters); }
+    try { state->engine.render(state->time, state->parameters, bands); }
     catch (const std::exception& error) { showError(state, error.what()); return G_SOURCE_REMOVE; }
     gtk_widget_queue_draw(state->preview);
     if (state->smoke && ++state->frames == 3)
@@ -145,6 +159,27 @@ static void activate(GtkApplication* app, gpointer smoke) {
     addButton("Reset feedback", G_CALLBACK(+[](GtkButton*, gpointer data) { static_cast<State*>(data)->reset = true; }));
     addButton("Open preset…", G_CALLBACK(+[](GtkButton*, gpointer data) { chooseFile(static_cast<State*>(data), false); }));
     addButton("Save preset…", G_CALLBACK(+[](GtkButton*, gpointer data) { chooseFile(static_cast<State*>(data), true); }));
+    state->microphoneButton = gtk_button_new_with_label("Enable microphone");
+    gtk_box_append(GTK_BOX(actions), state->microphoneButton);
+    g_signal_connect(state->microphoneButton, "clicked", G_CALLBACK(+[](GtkButton* button, gpointer data) {
+        auto* s = static_cast<State*>(data);
+        if (s->microphone.active()) {
+            s->microphone.stop();
+            gtk_button_set_label(button, "Enable microphone");
+            gtk_label_set_text(GTK_LABEL(s->audioStatus), "Microphone off");
+        } else {
+            try { s->microphone.start(); gtk_button_set_label(button, "Disable microphone"); }
+            catch (const std::exception& error) { gtk_label_set_text(GTK_LABEL(s->audioStatus), error.what()); }
+        }
+    }), state);
+    g_signal_connect(state->window, "notify::is-active", G_CALLBACK(+[](GObject* window, GParamSpec*, gpointer data) {
+        auto* s = static_cast<State*>(data);
+        if (!gtk_window_is_active(GTK_WINDOW(window))) {
+            s->microphone.stop();
+            gtk_button_set_label(GTK_BUTTON(s->microphoneButton), "Enable microphone");
+            gtk_label_set_text(GTK_LABEL(s->audioStatus), "Microphone off");
+        }
+    }), state);
     auto* body = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 24);
     gtk_widget_set_vexpand(body, true);
     gtk_box_append(GTK_BOX(root), body);
@@ -179,11 +214,16 @@ static void activate(GtkApplication* app, gpointer smoke) {
     gtk_label_set_xalign(GTK_LABEL(state->status), 0);
     gtk_label_set_wrap(GTK_LABEL(state->status), true);
     gtk_box_append(GTK_BOX(root), state->status);
+    state->audioStatus = gtk_label_new("Microphone off");
+    gtk_label_set_xalign(GTK_LABEL(state->audioStatus), 0);
+    gtk_label_set_wrap(GTK_LABEL(state->audioStatus), true);
+    gtk_box_append(GTK_BOX(root), state->audioStatus);
     gtk_widget_add_tick_callback(state->window, tick, state, nullptr);
     gtk_window_present(GTK_WINDOW(state->window));
 }
 
 int main(int argc, char** argv) {
+    gst_init(nullptr, nullptr);
     bool smoke = argc > 1 && std::string(argv[1]) == "--smoke-test";
     auto* app = gtk_application_new("com.akatazz.videosynthesizer", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), GINT_TO_POINTER(smoke));

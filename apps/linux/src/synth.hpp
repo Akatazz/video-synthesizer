@@ -6,10 +6,12 @@
 #include <stdexcept>
 #include <vector>
 #include <nlohmann/json.hpp>
+#include "audio.hpp"
 
 struct Parameters {
     float oscFreq = 2, oscSpeed = 0.5f, fractalZoom = 1.5f, fractalDetail = 10;
     float fractalMorph = 0.2f, caFeed = 0.045f, caKill = 0.06f, feedbackMix = 0.95f, colorShift = 0;
+    float audioToOsc = 0.5f, audioToFractal = 0.5f, audioToCA = 0.2f;
 };
 
 struct Field {
@@ -18,7 +20,7 @@ struct Field {
     float Parameters::*member;
     float min, max;
 };
-inline constexpr std::array<Field, 9> fields {{
+inline constexpr std::array<Field, 12> fields {{
     {"oscFreq", "Oscillator frequency", &Parameters::oscFreq, 0, 30},
     {"oscSpeed", "Oscillator speed", &Parameters::oscSpeed, 0, 5},
     {"fractalZoom", "Fractal zoom", &Parameters::fractalZoom, 0.1f, 4},
@@ -27,7 +29,10 @@ inline constexpr std::array<Field, 9> fields {{
     {"caFeed", "Cell feed", &Parameters::caFeed, 0, 0.1f},
     {"caKill", "Cell kill", &Parameters::caKill, 0, 0.1f},
     {"feedbackMix", "Feedback mix", &Parameters::feedbackMix, 0, 1},
-    {"colorShift", "Color shift", &Parameters::colorShift, 0, 1}
+    {"colorShift", "Color shift", &Parameters::colorShift, 0, 1},
+    {"audioToOsc", "Mid → oscillator", &Parameters::audioToOsc, 0, 1},
+    {"audioToFractal", "Bass → fractal", &Parameters::audioToFractal, 0, 1},
+    {"audioToCA", "High → cell feed", &Parameters::audioToCA, 0, 1}
 }};
 
 inline void validate(const Parameters& p) {
@@ -43,6 +48,8 @@ inline Parameters loadPreset(const nlohmann::json& json) {
         throw std::runtime_error("Unsupported preset version.");
     Parameters p;
     for (const auto& f : fields) {
+        if ((f.member == &Parameters::audioToOsc || f.member == &Parameters::audioToFractal ||
+             f.member == &Parameters::audioToCA) && !json.contains(f.key)) continue;
         if (!json.at(f.key).is_number()) throw std::runtime_error("Preset values must be numbers.");
         p.*f.member = json.at(f.key).get<float>();
     }
@@ -84,17 +91,20 @@ public:
         std::fill(next.begin(), next.end(), 0);
         std::fill(pixels.begin(), pixels.end(), 0);
     }
-    void render(float time, const Parameters& p) {
+    void render(float time, const Parameters& p, AudioBands audio = {}) {
         validate(p);
         if (!std::isfinite(time)) throw std::runtime_error("Invalid simulation time.");
+        float speed = p.oscSpeed + audio.mid * p.audioToOsc * 5;
+        float morph = p.fractalMorph + audio.bass * p.audioToFractal * 0.5f;
+        float feed = p.caFeed + audio.high * p.audioToCA * 0.05f;
         for (int y = 0; y < height; ++y) for (int x = 0; x < width; ++x) {
             float u = (x + 0.5f) / width, v = (y + 0.5f) / height;
-            float wx = std::sin(v * p.oscFreq + time * p.oscSpeed) * 0.01f;
-            float wy = std::cos(u * p.oscFreq + time * p.oscSpeed) * 0.01f;
+            float wx = std::sin(v * p.oscFreq + time * speed) * 0.01f;
+            float wy = std::cos(u * p.oscFreq + time * speed) * 0.01f;
             float zx = (u + wx - 0.5f) * p.fractalZoom * 5, zy = (v + wy - 0.5f) * p.fractalZoom * 5;
             float iterations = 0;
             for (int i = 0; i < 30 && i < p.fractalDetail; ++i) {
-                float nx = zx * zx - zy * zy + p.fractalMorph;
+                float nx = zx * zx - zy * zy + morph;
                 zy = 2 * zx * zy + 0.156f + std::sin(time * 0.1f) * 0.1f;
                 zx = nx;
                 if (zx * zx + zy * zy > 4) break;
@@ -112,7 +122,7 @@ public:
                     laplacian += sample(u + float(dx) / width, v + float(dy) / height, channel) * weight;
                 }
                 float last = sample(u + wx * 0.5f, v + wy * 0.5f, channel);
-                float reaction = last + laplacian - last * last * last + p.caFeed * (1 - last) - p.caKill * last;
+                float reaction = last + laplacian - last * last * last + feed * (1 - last) - p.caKill * last;
                 if (channel == 0) reactionRed = reaction;
                 float phase = channel == 0 ? 0 : channel == 1 ? 0.33f : 0.67f;
                 float palette = 0.5f + 0.5f * std::cos(6.28318f * (reactionRed + p.colorShift + phase));
