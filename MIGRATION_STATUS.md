@@ -14,7 +14,7 @@ preserved as a reference; the source repository is authoritative for current cod
 - [x] Add overview, native entry points, installation, contribution guidance, and CI badge.
 - [x] Add ESLint flat config, Prettier, npm checks, and GitHub Actions.
 - [x] Add `codex.yaml` as a human-readable index, without claiming automatic agent configuration.
-- [ ] Verify all new GitHub CI jobs on the feature branch.
+- [x] Verify all five GitHub CI jobs on the feature branch (implementation commit `7befbfa`).
 
 The plan's ZIP archives and generated inventory are not present in this checkout.
 The source is already imported, so importing an older archive is unnecessary.
@@ -35,7 +35,7 @@ are required. Never commit access tokens.
 - [x] Linux C++/GTK application source, preset/renderer checks, and GTK launch check.
 - [x] Android Kotlin application source, native OpenGL ES rendering, and build/emulator checks.
 - [x] Verify Linux Release build, preset/renderer checks, and GTK launch on CI.
-- [ ] Verify Android build and emulator results after adding the implementation.
+- [x] Verify Android preset tests, debug APK build, and emulator renderer/reset test.
 - [ ] Native audio capture, FFT bands, and modulation routing on each platform.
 - [ ] Native NDI integration and lighting calibration on supported platforms.
 - [ ] Camera/video input, patch graph, remaining synthesis modules, and parity checks.
@@ -59,5 +59,11 @@ own their implementations. Shared contracts contain data and documented behavior
   iOS Simulator targets, including their Metal libraries (commit `3481272`).
 - GitHub Linux runner passes C++ compilation with warnings as errors, preset and
   renderer checks, and a three-frame GTK launch under Xvfb (commit `270e96e`).
+- All five jobs pass together for implementation commit `7befbfa` in
+  [CI run 41232657168](https://github.com/Akatazz/video-synthesizer/actions/runs/41232657168).
+  Android builds a debug APK, passes Kotlin preset tests, and executes one native
+  renderer startup/reset test on an API 35 emulator.
+- A self-contained Windows x64 build is available locally in
+  `artifacts/windows/VideoSynthesizer.exe` (the full adjacent publish directory is required).
 
 The goal remains active until outstanding platform work and validation are done.

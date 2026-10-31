@@ -62,6 +62,10 @@ The synthesizer includes a built-in **NDI® (Network Device Interface) broadcast
 
 ## 🚀 Quick Start
 
+For the browser application, install Node.js 22.13+ (or Node.js 24+) and npm.
+Native applications use their platform toolchains; follow the linked platform
+README files above.
+
 ```bash
 # Clone
 git clone https://github.com/Akatazz/video-synthesizer.git
