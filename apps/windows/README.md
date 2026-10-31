@@ -25,5 +25,12 @@ shown below the preview. See the [audio contract](../../contracts/AUDIO.md).
 
 The CPU renderer uses a fixed
 480×270 internal preview, scaled to the window. It is an initial implementation;
-Direct3D rendering, NDI output, full-resolution output,
+Direct3D rendering, full-resolution output,
 installers, and signing remain on the roadmap.
+
+Native NDI output is available in the scrollable rack: select an installed NDI
+runtime, set the source name, resolution and frame rate, then start output.
+Lighting cutoff/gamma, channel and alpha controls apply live. Receiver count and
+program/preview tally appear beneath the preview. Sending runs on a bounded
+background worker; pausing synthesis holds the output frame. See the
+[NDI output guide](../../contracts/NDI.md) for runtime setup and validation limits.

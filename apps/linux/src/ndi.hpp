@@ -107,7 +107,10 @@ public:
             handle = dlopen(name,RTLD_NOW | RTLD_LOCAL);
             if (handle) break;
         }
-        if (!handle) throw std::runtime_error("NDI runtime unavailable. Install the official runtime or set VIDEO_SYNTH_NDI_RUNTIME to its absolute library path.");
+        if (!handle) {
+            const char* detail = dlerror();
+            throw std::runtime_error(std::string("NDI runtime unavailable. Install the official runtime or set VIDEO_SYNTH_NDI_RUNTIME to its absolute library path. ")+(detail ? detail : ""));
+        }
         // The runtime stays initialized for process lifetime; stopping one sender
         // cannot invalidate another application's window or source.
         return instance = std::shared_ptr<NdiRuntime>(new NdiRuntime(handle));
@@ -150,7 +153,7 @@ class NdiOutput {
     std::optional<Frame> pending;
     std::thread worker;
     std::string message = "NDI off";
-    std::chrono::steady_clock::time_point previous {};
+    std::chrono::steady_clock::time_point nextSubmission {};
 public:
     ~NdiOutput() { stop(); }
     bool active() const { return running; }
@@ -161,7 +164,7 @@ public:
         try { sender = std::make_unique<NdiSender>(NdiRuntime::load(path),name); }
         catch (const std::exception& error) { std::lock_guard lock(gate); message = std::string("NDI unavailable: ")+error.what(); throw; }
         running = true;
-        previous = {};
+        nextSubmission = {};
         message = "NDI sending · waiting for receivers";
         worker = std::thread([this,sender=std::move(sender)] {
             try {
@@ -186,8 +189,10 @@ public:
         if (!running) return;
         std::lock_guard lock(gate);
         auto now = std::chrono::steady_clock::now();
-        if (pending || std::chrono::duration<double>(now-previous).count() < 1.0/settings.fps) return;
-        pending = Frame {pixels,width,height,settings}; previous = now; ready.notify_one();
+        if (pending || now < nextSubmission) return;
+        auto interval = std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double>(1.0/settings.fps));
+        nextSubmission = nextSubmission == std::chrono::steady_clock::time_point{} ? now+interval : std::max(nextSubmission+interval,now);
+        pending = Frame {pixels,width,height,settings}; ready.notify_one();
     }
     void stop() {
         running = false; ready.notify_all();

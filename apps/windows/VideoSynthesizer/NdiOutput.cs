@@ -8,7 +8,7 @@ public sealed class NdiOutput : IDisposable
     private sealed record Frame(byte[] Pixels, int Width, int Height, NdiSettings Settings);
     private BlockingCollection<Frame>? queue;
     private Task? worker;
-    private long lastSubmitted;
+    private double nextSubmission;
     private volatile string status = "NDI off";
     private volatile bool running;
     public bool IsRunning => running;
@@ -24,7 +24,7 @@ public sealed class NdiOutput : IDisposable
         queue = pending;
         running = true;
         status = "NDI sending · waiting for receivers";
-        lastSubmitted = 0;
+        nextSubmission = 0;
         worker = Task.Run(() =>
         {
             try
@@ -48,9 +48,13 @@ public sealed class NdiOutput : IDisposable
         var pending = queue;
         if (!running || pending == null || pending.IsAddingCompleted || pending.Count != 0) return;
         long now = Stopwatch.GetTimestamp();
-        if ((now - lastSubmitted) / (double)Stopwatch.Frequency < 1.0 / settings.Fps) return;
+        if (now < nextSubmission) return;
         // Snapshot the frame before the renderer reuses its pixel buffer.
-        if (pending.TryAdd(new Frame(pixels.ToArray(), width, height, settings))) lastSubmitted = now;
+        if (pending.TryAdd(new Frame(pixels.ToArray(), width, height, settings)))
+        {
+            double interval = (double)Stopwatch.Frequency / settings.Fps;
+            nextSubmission = nextSubmission == 0 ? now + interval : Math.Max(nextSubmission + interval, now);
+        }
     }
 
     public void Stop()

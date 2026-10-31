@@ -1,5 +1,6 @@
 #pragma once
 #include "ndi.hpp"
+#include <fstream>
 
 inline void checkLighting(const std::filesystem::path& fixtures) {
     std::vector<std::uint32_t> image {0xffff0000,0xff00ff00,0xff0000ff,0xff0a0a0a};

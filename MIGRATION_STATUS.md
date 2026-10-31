@@ -41,7 +41,11 @@ are required. Never commit access tokens.
       and Linux GStreamer.
 - [ ] Verify live microphone input, permission denial/grant, device changes, and
       foreground transitions on physical hardware for each platform.
-- [ ] Native NDI integration and lighting calibration on supported platforms.
+- [x] Implement native desktop NDI senders and lighting calibration on Windows,
+      macOS and Linux, with bounded workers and receiver/tally telemetry.
+- [ ] Verify desktop NDI CI results, Metal readback on hardware, cross-machine
+      discovery, output performance, and third-party lighting-console operation.
+- [ ] Obtain mobile NDI SDK libraries and implement iOS/Android NDI integration.
 - [ ] Camera/video input, patch graph, remaining synthesis modules, and parity checks.
 - [ ] GPU renderer for Windows; full-resolution output and performance measurements.
 - [ ] Platform installers, icons, signing, and release packaging.

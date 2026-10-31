@@ -11,7 +11,8 @@ From the repository root on a Mac with Xcode and its platform SDKs installed:
 ```sh
 xcodebuild -project apps/apple/VideoSynthesizer.xcodeproj -scheme VideoSynthesizerMac -configuration Release -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project apps/apple/VideoSynthesizer.xcodeproj -scheme VideoSynthesizerIOS -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
-swiftc apps/apple/VideoSynthesizer/SynthParameters.swift apps/apple/VideoSynthesizer/AudioAnalysis.swift apps/apple/Checks/CheckPresets.swift -o /tmp/check-presets
+clang -c apps/apple/VideoSynthesizer/NDIInterop.c -o /tmp/ndi-interop.o
+swiftc -import-objc-header apps/apple/VideoSynthesizer/NDIInterop.h apps/apple/VideoSynthesizer/SynthParameters.swift apps/apple/VideoSynthesizer/AudioAnalysis.swift apps/apple/VideoSynthesizer/NdiOutput.swift apps/apple/Checks/CheckPresets.swift /tmp/ndi-interop.o -o /tmp/check-presets
 /tmp/check-presets contracts/presets/classic-feedback.json
 ```
 
@@ -32,7 +33,12 @@ stops on scene deactivation, audio interruption/device changes, and view teardow
 After a permission prompt interrupts activation, enable capture again if needed.
 See the [audio contract](../../contracts/AUDIO.md).
 
-NDI, camera/video input, and PNG export remain to implement.
+macOS has a native NDI sender with source/resolution/frame-rate controls and live
+lighting calibration. It uses asynchronous Metal readback and a bounded Swift
+worker with a small C bridge to the installed runtime. Choose the runtime with
+**NDI runtime…**; the runtime is not bundled with the app. See the
+[NDI output guide](../../contracts/NDI.md). iOS NDI still needs its platform SDK
+and integration. Camera/video input and PNG export remain to implement.
 Build success is separate from runtime validation: check visuals, reset while
 paused, file pickers, rotation, background/foreground, and device performance on
 Apple hardware before distributing.

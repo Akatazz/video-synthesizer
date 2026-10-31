@@ -13,8 +13,9 @@ and independent native applications under development.
 - **Android:** [Kotlin / Android SDK application](apps/android/README.md), with OpenGL ES rendering and native controls.
 
 Native applications are early previews with native microphone analysis and audio
-modulation. NDI currently belongs to the browser implementation; native feature
-parity and physical-device validation remain in progress. See
+modulation. Desktop apps also provide native NDI output when a compatible runtime
+is installed; mobile NDI integration and full feature parity remain in progress.
+See the [NDI output guide](contracts/NDI.md),
 [migration status](MIGRATION_STATUS.md), [system specification](SYSTEM_SPEC.md),
 and the [native preset contract](contracts/README.md).
 

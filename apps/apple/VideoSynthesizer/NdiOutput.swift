@@ -69,7 +69,7 @@ final class NdiOutput: ObservableObject {
     private var sender: OpaquePointer?
     private var running = false, busy = false
     private var generation = 0
-    private var previousCapture: Double = 0
+    private var nextCapture: Double = 0
 
     deinit { if let sender { vs_ndi_close(sender) } }
 
@@ -84,7 +84,7 @@ final class NdiOutput: ObservableObject {
             }
             guard let opened else { throw SynthParameters.PresetError.invalid(String(cString:error)) }
             worker.sync { sender = opened }
-            gate.lock(); running = true; previousCapture = 0; gate.unlock()
+            gate.lock(); running = true; nextCapture = 0; gate.unlock()
             active = true
             status = "NDI sending · waiting for receivers"
         } catch { status = "NDI unavailable: \(error.localizedDescription)" }
@@ -99,8 +99,10 @@ final class NdiOutput: ObservableObject {
 
     func reserveFrame(time: Double) -> NdiFrameTicket? {
         gate.lock(); defer { gate.unlock() }
-        guard running, !busy, time-previousCapture >= 1/Double(settings.fps) else { return nil }
-        busy = true; previousCapture = time
+        guard running, !busy, time >= nextCapture else { return nil }
+        let interval = 1/Double(settings.fps)
+        nextCapture = nextCapture == 0 ? time+interval : max(nextCapture+interval,time)
+        busy = true
         return NdiFrameTicket(generation:generation,settings:settings)
     }
 
