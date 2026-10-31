@@ -47,7 +47,10 @@ are required. Never commit access tokens.
       on Windows, macOS and Linux CI.
 - [ ] Verify Metal readback on hardware, cross-machine discovery, output
       performance, and third-party lighting-console operation.
-- [ ] Obtain mobile NDI SDK libraries and implement iOS/Android NDI integration.
+- [x] Implement desktop capture retention and window-independent rendering/output.
+- [ ] Verify final background rendering, pause, minimize/restore and teardown CI checks.
+- [ ] Obtain mobile NDI SDK libraries and implement iOS/Android NDI integration
+      (user confirmed the mobile SDK is not installed locally).
 - [ ] Camera/video input, patch graph, remaining synthesis modules, and parity checks.
 - [ ] GPU renderer for Windows; full-resolution output and performance measurements.
 - [ ] Platform installers, icons, signing, and release packaging.

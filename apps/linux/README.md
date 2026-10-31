@@ -17,7 +17,8 @@ and exits for a headless CI launch check (`xvfb-run`). There is no Node.js runti
 **Enable microphone** starts GStreamer's `autoaudiosrc`, converts the default
 audio input to mono float samples, and analyzes bass/mid/high bands. The native
 controls route them to synthesis parameters and preserve routing in presets.
-Capture stops when the window loses focus or closes. A working audio source
+Capture continues across focus/minimize changes until disabled or the window
+closes. A working audio source
 plugin (usually PulseAudio/PipeWire compatibility) is required; missing devices
 or plugins appear as UI errors. The current F32LE pipeline targets little-endian
 Linux systems (including x64 and Arm64).
@@ -34,3 +35,10 @@ Install a compatible NDI runtime and Avahi, or enter the absolute runtime path,
 then choose a source name, output size and frame rate. Sending uses a bounded
 C++ worker and the runtime's C API. Receiver count and tally are displayed below
 the preview. See the [NDI output guide](../../contracts/NDI.md).
+
+Rendering uses a monotonic GLib timer, independent of the window's frame clock.
+The application-level checks `--background-smoke-test` and
+`--background-ndi-smoke-test /absolute/path/libndi.so.6` hide/unmap the real GTK
+window and verify that synthesis advances and output continues. They never open
+the microphone. CI runs these checks with Xvfb; closing the window removes the
+render timer and releases capture/output resources.

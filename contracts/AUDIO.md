@@ -5,8 +5,11 @@ WASAPI (C# / NAudio) on Windows, AVAudioEngine and Accelerate on Apple,
 AudioRecord and a Kotlin FFT on Android, and GStreamer appsink/FFT on Linux.
 No Node server, browser, or shared executable is involved.
 
-Capture starts only from **Enable microphone**. Stop, loss of foreground,
-permission failure, device errors, and view teardown clear the band levels.
+Capture starts only from **Enable microphone**. Desktop capture stays enabled
+when switching applications or minimizing the window, so a lighting console can
+take focus while the synth remains audio reactive. **Disable microphone**, device
+errors, and closing the view stop capture and clear the levels. Mobile capture
+also stops on loss of foreground; it does not resume automatically.
 Permission prompts may interrupt activation; after granting access, press Enable
 microphone again if the app reports that capture is off. Microphone state and
 live samples are never stored in presets, written to disk, or sent over a network.
@@ -48,3 +51,6 @@ native amplitude normalization differs from Web Audio's byte-spectrum scale.
 CI verifies DSP and compilation without enabling microphones. A physical-device
 check remains necessary for permission denial/grant, input selection, unplugging,
 foreground transitions, and the visual response to live sound on every platform.
+Desktop tests render and send NDI while the window is hidden; they do not enable
+a real microphone. System sleep can suspend processing and is not equivalent to
+minimizing a window.

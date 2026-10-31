@@ -48,6 +48,14 @@ continues to send the held frame. Stopping output or closing the view joins the
 sender worker and releases the sender. Output is never automatically enabled.
 NDI settings are session controls and are not currently stored in synth presets.
 
+Desktop output continues when a lighting console takes focus or the synth window
+is minimized/hidden. Windows uses its dispatcher timer, Linux uses a GLib timer
+independent of the widget frame clock, and macOS has an offscreen Metal loop when
+the view has no drawable. The last nonzero macOS render size is retained. The
+offscreen loop stops when output is disabled or its renderer is torn down.
+Minimizing does not stop an explicitly enabled desktop microphone. System sleep
+or OS-level suspension can still interrupt processing.
+
 All frames are top-down, straight-alpha, 8-bit BGRA and use progressive video.
 The lighting pass performs these operations in order:
 
@@ -90,10 +98,15 @@ apps/linux/build/synth-checks contracts/presets/classic-feedback.json /absolute/
 On macOS, add the absolute `libndi.dylib` path as the second argument to the
 `check-presets` command shown in the Apple README.
 
-Runtime send/receive tests do not establish Metal readback behavior, hardware
-throughput, cross-machine discovery, third-party console compatibility, or live
-tally/alpha behavior. Test these with NDI receivers and the intended lighting
-console before using this preview for a show.
+CI also runs the real Windows/GTK application with its window hidden/unmapped and
+verifies changing synthesis frames reach the NDI worker. The macOS check uses the
+compiled app's Metal library, renders without a drawable, checks changing readback
+pixels and paused output, then tests a window minimize/restore cycle and teardown.
+It runs when a Metal device is available and explicitly reports a skip otherwise.
+
+These checks do not establish production-resolution throughput, cross-machine
+discovery, third-party console compatibility, or live tally/alpha behavior. Test
+these with NDI receivers and the intended lighting console before a show.
 
 ## Mobile
 

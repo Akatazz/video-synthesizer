@@ -20,7 +20,8 @@ color controls, pause/reset, JSON preset import/export, and PNG snapshots. All
 controls work without microphone permission. **Enable microphone** starts WASAPI
 capture via NAudio and shows bass/mid/high levels. Route those bands with the
 three audio modulation sliders; presets retain the routing amounts. Capture
-stops when the window loses focus or closes. Input permission/device failures are
+continues when the window loses focus or is minimized, and stops when disabled or
+the window closes. Input permission/device failures are
 shown below the preview. See the [audio contract](../../contracts/AUDIO.md).
 
 The CPU renderer uses a fixed
@@ -34,3 +35,13 @@ Lighting cutoff/gamma, channel and alpha controls apply live. Receiver count and
 program/preview tally appear beneath the preview. Sending runs on a bounded
 background worker; pausing synthesis holds the output frame. See the
 [NDI output guide](../../contracts/NDI.md) for runtime setup and validation limits.
+
+The application-level background check hides the WPF window and verifies that
+its synthesis continues. An optional runtime path also verifies NDI submission:
+
+```powershell
+dotnet run --project apps/windows/VideoSynthesizer -c Release -- --background-smoke-test
+dotnet run --project apps/windows/VideoSynthesizer -c Release -- --background-smoke-test 'C:\path\to\Processing.NDI.Lib.x64.dll'
+```
+
+These modes exit after verifying changing frames; they do not enable microphone capture.
