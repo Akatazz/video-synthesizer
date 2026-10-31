@@ -45,10 +45,11 @@ are required. Never commit access tokens.
       macOS and Linux, with bounded workers and receiver/tally telemetry.
 - [x] Verify native NDI sender/receiver round trips and shared lighting fixtures
       on Windows, macOS and Linux CI.
-- [ ] Verify Metal readback on hardware, cross-machine discovery, output
-      performance, and third-party lighting-console operation.
+- [x] Verify real Metal synthesis/readback/NDI output on a Metal-capable macOS CI runner.
+- [ ] Verify cross-machine discovery, production output performance, and
+      third-party lighting-console operation on the intended hardware.
 - [x] Implement desktop capture retention and window-independent rendering/output.
-- [ ] Verify final background rendering, pause, minimize/restore and teardown CI checks.
+- [x] Verify background rendering, pause, minimize/restore and teardown CI checks.
 - [ ] Obtain mobile NDI SDK libraries and implement iOS/Android NDI integration
       (mobile SDK libraries are not available in this checkout or local toolchain).
 - [ ] Camera/video input, patch graph, remaining synthesis modules, and parity checks.
@@ -92,5 +93,12 @@ own their implementations. Shared contracts contain data and documented behavior
   configured runtime started 512×512 output from the UI. Windows then displayed
   a firewall prompt; no firewall settings were changed, and the test process was
   closed. The local NDI preview build is in `artifacts/windows-ndi`.
+- Desktop background implementation `b9a015e` passes Windows hidden-window and
+  Linux unmapped-window synthesis/NDI checks, plus the real macOS GPU/readback/NDI
+  check in [run 41238717621](https://github.com/Akatazz/video-synthesizer/actions/runs/41238717621).
+  macOS verifies changing frames without a drawable, paused output, invalid/zero
+  drawable sizes, window minimize/restore, and output shutdown on window close.
+  Both macOS and iOS targets build. The refreshed self-contained Windows app in
+  `artifacts/windows-ndi` also passes its local hidden-window startup check.
 
 The goal remains active until outstanding platform work and validation are done.
