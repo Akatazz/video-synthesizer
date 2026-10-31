@@ -66,6 +66,10 @@ struct CheckPresets {
         lighting.alpha = 2
         let inverted = try LightingOutput.process(image,width:2,height:2,stride:8,settings:lighting)
         precondition(inverted[3] == 0 && inverted[7] == 255,"Inverted alpha failed")
+        let unavailable = NdiOutput()
+        unavailable.runtimePath = "/video-synth-missing-runtime-4a137d6f.dylib"
+        unavailable.start()
+        precondition(!unavailable.active && unavailable.status.hasPrefix("NDI unavailable:"),"Missing runtime must leave output off and an error visible")
         if CommandLine.arguments.count > 2 {
             var error = [CChar](repeating:0,count:512)
             let success = CommandLine.arguments[2].withCString { vs_ndi_test_roundtrip($0,&error,512) }

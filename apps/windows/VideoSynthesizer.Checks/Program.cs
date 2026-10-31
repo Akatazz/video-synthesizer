@@ -89,4 +89,4 @@ var clock = Stopwatch.StartNew();
 for (int i = 0; i < 5; i++) preview.Render(i / 30f, preset);
 Console.WriteLine($"Preset and renderer checks passed. Preview average: {clock.Elapsed.TotalMilliseconds / 5:0.0} ms/frame.");
 NdiChecks.Lighting(Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(Path.GetFullPath(args.Length > 0 ? args[0] : "contracts/presets/classic-feedback.json")))!, "lighting-fixtures.json"));
-if (args.Length > 1) NdiChecks.RoundTrip(args[1]);
+if (args.Length > 1) { NdiChecks.RoundTrip(args[1]); NdiChecks.WorkerLifecycle(args[1]); }

@@ -12,5 +12,6 @@
     <Compile Include="../VideoSynthesizer/AudioAnalysis.cs" Link="AudioAnalysis.cs" />
     <Compile Include="../VideoSynthesizer/NdiSettings.cs" Link="NdiSettings.cs" />
     <Compile Include="../VideoSynthesizer/NdiRuntime.cs" Link="NdiRuntime.cs" />
+    <Compile Include="../VideoSynthesizer/NdiOutput.cs" Link="NdiOutput.cs" />
   </ItemGroup>
 </Project>

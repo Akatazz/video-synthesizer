@@ -34,6 +34,13 @@ static class NdiChecks
         var enlarged = LightingOutput.Process(image, 2, 2, settings with { Width = 4, Height = 4 });
         Check(enlarged[2] == 255 && enlarged[(3*4)*4] == 255, "Resizing changed frame orientation.");
         Check(Marshal.SizeOf<NdiRuntime.VideoFrame>() == 72 && Marshal.OffsetOf<NdiRuntime.VideoFrame>(nameof(NdiRuntime.VideoFrame.Data)).ToInt32() == 40, "NDI video ABI layout is wrong.");
+        using (var unavailable = new NdiOutput())
+        {
+            bool rejected = false;
+            try { unavailable.Start("Missing runtime check",Path.Combine(Path.GetTempPath(),"video-synth-missing-runtime-4a137d6f.dll")); }
+            catch (DllNotFoundException) { rejected = true; }
+            Check(rejected && !unavailable.IsRunning && unavailable.Status.StartsWith("NDI unavailable:"), "Missing NDI runtime must leave a persistent error and output off.");
+        }
         foreach (var fixture in JsonNode.Parse(File.ReadAllText(fixturePath))!.AsArray())
         {
             var p = new NdiSettings {
@@ -85,5 +92,22 @@ static class NdiChecks
             throw new Exception("No NDI video frame was received before the timeout.");
         }
         finally { runtime.Export<DestroyReceive>("NDIlib_recv_destroy")(receiver); }
+    }
+
+    public static void WorkerLifecycle(string path)
+    {
+        using var output = new NdiOutput();
+        for (int cycle = 0; cycle < 3; cycle++)
+        {
+            output.Start("LZX-V Worker Test " + cycle,path);
+            var settings = new NdiSettings { Width = 64, Height = 36 };
+            output.Submit(new byte[2*2*4],2,2,settings);
+            var wait = Stopwatch.StartNew();
+            while (!output.Status.Contains("64 × 36") && wait.Elapsed.TotalSeconds < 3 && output.IsRunning) Thread.Sleep(10);
+            if (!output.Status.Contains("64 × 36")) throw new Exception("NDI worker did not process its frame: "+output.Status);
+            output.Stop();
+            if (output.IsRunning || output.Status != "NDI off") throw new Exception("NDI worker did not stop cleanly.");
+        }
+        Console.WriteLine("NDI background worker start/send/stop checks passed.");
     }
 }

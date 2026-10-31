@@ -84,7 +84,7 @@ jobs:
           tar -xzf artifacts/ndi/grandi-linux-x64-2.0.2.tgz -C artifacts/ndi
           sudo systemctl start avahi-daemon
       - name: Verify real NDI sender and receiver
-        run: apps/linux/build/synth-checks contracts/presets/classic-feedback.json "$(rg --files --no-ignore "$PWD/artifacts/ndi/package" | rg 'libndi.so' | head -1)"
+        run: apps/linux/build/synth-checks contracts/presets/classic-feedback.json "$PWD/artifacts/ndi/package/libndi.so.6"
       - name: Launch GTK preview
         run: timeout 30s xvfb-run -a apps/linux/build/video-synthesizer --smoke-test
   android:

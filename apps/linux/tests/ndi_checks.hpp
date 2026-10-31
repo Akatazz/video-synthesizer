@@ -14,6 +14,12 @@ inline void checkLighting(const std::filesystem::path& fixtures) {
     settings.alpha = 2;
     auto inverted = lightingOutput(image,2,2,settings);
     if (inverted[0] != 0x00ffffff || inverted[1] != 0xff000000) throw std::runtime_error("Inverted alpha failed.");
+    NdiOutput unavailable;
+    bool rejected = false;
+    try { unavailable.start("Missing runtime check","/video-synth-missing-runtime-4a137d6f.so"); }
+    catch (const std::runtime_error&) { rejected = true; }
+    if (!rejected || unavailable.active() || unavailable.status().find("NDI unavailable:") != 0)
+        throw std::runtime_error("Missing NDI runtime must leave a persistent error and output off.");
     std::ifstream input(fixtures);
     nlohmann::json cases;
     input >> cases;
@@ -68,4 +74,16 @@ inline void checkNdiRoundTrip(const std::string& path) {
         if (!received) throw std::runtime_error("No NDI frame received before timeout.");
     } catch (...) { destroy(receiver); throw; }
     destroy(receiver);
+    NdiOutput output;
+    for (int cycle = 0; cycle < 3; ++cycle) {
+        output.start("LZX-V Worker Test "+std::to_string(cycle),path);
+        NdiSettings settings; settings.width = 64; settings.height = 36;
+        output.submit(std::vector<std::uint32_t>(4,0xff000000),2,2,settings);
+        auto deadline = std::chrono::steady_clock::now()+std::chrono::seconds(3);
+        while (output.active() && output.status().find("64 × 36") == std::string::npos && std::chrono::steady_clock::now() < deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        if (output.status().find("64 × 36") == std::string::npos) throw std::runtime_error("NDI worker did not process its frame: "+output.status());
+        output.stop();
+        if (output.active() || output.status() != "NDI off") throw std::runtime_error("NDI worker did not stop cleanly.");
+    }
 }
