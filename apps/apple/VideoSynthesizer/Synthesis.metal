@@ -48,6 +48,6 @@ vertex ScreenVertex screenVertex(uint id [[vertex_id]]) {
     result.uv = float2(positions[id].x * 0.5 + 0.5, 0.5 - positions[id].y * 0.5);
     return result;
 }
-fragment half4 screenFragment(ScreenVertex vertex [[stage_in]], texture2d<half> image [[texture(0)]]) {
-    return image.sample(linearClamp, vertex.uv);
+fragment half4 screenFragment(ScreenVertex input [[stage_in]], texture2d<half> image [[texture(0)]]) {
+    return image.sample(linearClamp, input.uv);
 }
