@@ -67,9 +67,16 @@ jobs:
       - name: Build macOS application and Metal library
         run: xcodebuild -project apps/apple/VideoSynthesizer.xcodeproj -scheme VideoSynthesizerMac -configuration Release -destination 'generic/platform=macOS' -derivedDataPath artifacts/apple CODE_SIGNING_ALLOWED=NO build
       - name: Verify background Metal rendering when a GPU is available
+        timeout-minutes: 3
         run: |
-          swiftc -import-objc-header apps/apple/VideoSynthesizer/NDIInterop.h apps/apple/VideoSynthesizer/SynthParameters.swift apps/apple/VideoSynthesizer/AudioAnalysis.swift apps/apple/VideoSynthesizer/NdiOutput.swift apps/apple/VideoSynthesizer/MetalSurface.swift apps/apple/Checks/CheckBackgroundRendering.swift /tmp/ndi-interop.o -o /tmp/check-background-rendering
+          swiftc -g -import-objc-header apps/apple/VideoSynthesizer/NDIInterop.h apps/apple/VideoSynthesizer/SynthParameters.swift apps/apple/VideoSynthesizer/AudioAnalysis.swift apps/apple/VideoSynthesizer/NdiOutput.swift apps/apple/VideoSynthesizer/MetalSurface.swift apps/apple/Checks/CheckBackgroundRendering.swift /tmp/ndi-interop.o -o /tmp/check-background-rendering
+          set +e
           /tmp/check-background-rendering "$PWD/artifacts/apple/Build/Products/Release/VideoSynthesizerMac.app/Contents/Resources/default.metallib" "$PWD/artifacts/ndi/package/libndi.dylib"
+          check_status=$?
+          if [ "$check_status" -ne 0 ]; then
+            lldb --batch -o run -o 'thread backtrace all' -- /tmp/check-background-rendering "$PWD/artifacts/apple/Build/Products/Release/VideoSynthesizerMac.app/Contents/Resources/default.metallib" "$PWD/artifacts/ndi/package/libndi.dylib"
+          fi
+          exit "$check_status"
       - name: Build iOS Simulator application and Metal library
         run: xcodebuild -project apps/apple/VideoSynthesizer.xcodeproj -scheme VideoSynthesizerIOS -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath artifacts/apple CODE_SIGNING_ALLOWED=NO build
       - name: Archive macOS app preserving bundle permissions
