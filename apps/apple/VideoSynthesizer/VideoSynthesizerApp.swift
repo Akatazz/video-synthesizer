@@ -71,7 +71,7 @@ struct SynthView: View {
         .padding(24)
         .background(Color(red: 0.06, green: 0.08, blue: 0.10))
         .preferredColorScheme(.dark)
-        .onChange(of: scenePhase) { phase in if phase != .active { audio.stop() } }
+        .onChange(of: scenePhase) { phase in audio.updateScene(active: phase == .active, background: phase == .background) }
         .onDisappear { audio.stop() }
         #if os(macOS)
         .frame(minWidth: 860, minHeight: 580)

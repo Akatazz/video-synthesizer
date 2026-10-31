@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstring>
 #include <numeric>
+#include <memory>
 #include <stdexcept>
 #include <string>
 

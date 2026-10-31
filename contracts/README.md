@@ -11,6 +11,9 @@ Native applications exchange UTF-8 JSON presets with these required keys:
 - `caFeed`, `caKill`: finite numbers, 0–0.1.
 - `feedbackMix`, `colorShift`: finite numbers, 0–1.
 
+The optional audio routing extension and microphone/DSP behavior are documented
+in [AUDIO.md](AUDIO.md). Original presets without these optional keys still load.
+
 Unknown keys are ignored to allow future metadata. Reject missing keys, invalid
 JSON, non-finite values, and out-of-range numbers before changing live state.
 Load resets the feedback history. Save records parameters, not simulation state.

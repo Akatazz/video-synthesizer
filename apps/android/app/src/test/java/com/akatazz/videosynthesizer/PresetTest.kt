@@ -11,6 +11,8 @@ class PresetTest {
         val preset = SynthParameters.fromJson(fixture())
         assertEquals(SynthParameters(), preset)
         assertEquals(preset, SynthParameters.fromJson(preset.toJson()))
+        val routed = preset.copy(audioToOsc = 0.15f, audioToFractal = 0.75f, audioToCA = 1f)
+        assertEquals(routed, SynthParameters.fromJson(routed.toJson()))
     }
 
     @Test fun rejectsMissingAndInvalidFields() {

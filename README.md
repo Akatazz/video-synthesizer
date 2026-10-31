@@ -12,8 +12,9 @@ and independent native applications under development.
 - **Linux:** [C++ / GTK application](apps/linux/README.md), with native controls and CPU feedback rendering.
 - **Android:** [Kotlin / Android SDK application](apps/android/README.md), with OpenGL ES rendering and native controls.
 
-Native applications are early previews. Audio and NDI currently belong to the
-browser implementation; native feature parity remains in progress. See
+Native applications are early previews with native microphone analysis and audio
+modulation. NDI currently belongs to the browser implementation; native feature
+parity and physical-device validation remain in progress. See
 [migration status](MIGRATION_STATUS.md), [system specification](SYSTEM_SPEC.md),
 and the [native preset contract](contracts/README.md).
 

@@ -24,6 +24,7 @@ class MainActivity : Activity() {
     private lateinit var audioStatus: TextView
     private var permissionPending = false
     private var foreground = false
+    private var startOnResume = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -171,6 +172,7 @@ class MainActivity : Activity() {
 
     private fun stopMicrophone() {
         permissionPending = false
+        startOnResume = false
         microphone.stop()
         microphoneButton.text = "Enable microphone"
         audioStatus.text = "Microphone off"
@@ -180,10 +182,31 @@ class MainActivity : Activity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode != 10 || !permissionPending) return
         permissionPending = false
-        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED && foreground) startMicrophone()
-        else audioStatus.text = "Microphone access denied or request interrupted. Tap Enable microphone to retry."
+        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            if (foreground) startMicrophone()
+            else { startOnResume = true; audioStatus.text = "Microphone access granted. Waiting for the app to become active." }
+        } else audioStatus.text = "Microphone access denied. Enable it in system settings to use audio."
     }
 
-    override fun onResume() { super.onResume(); foreground = true; surface.onResume() }
-    override fun onPause() { foreground = false; stopMicrophone(); surface.onPause(); super.onPause() }
+    override fun onResume() {
+        super.onResume()
+        foreground = true
+        surface.onResume()
+        if (startOnResume) { startOnResume = false; startMicrophone() }
+    }
+    override fun onPause() {
+        foreground = false
+        microphone.stop()
+        microphoneButton.text = "Enable microphone"
+        if (!permissionPending) startOnResume = false
+        audioStatus.text = if (permissionPending) "Requesting microphone access…" else "Microphone off"
+        surface.onPause()
+        super.onPause()
+    }
+    override fun onStop() {
+        // An actual background transition cancels a permission-driven start.
+        permissionPending = false
+        startOnResume = false
+        super.onStop()
+    }
 }

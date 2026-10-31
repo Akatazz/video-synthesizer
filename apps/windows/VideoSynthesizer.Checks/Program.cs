@@ -12,6 +12,8 @@ string fixture = File.ReadAllText(args.Length > 0 ? args[0] : "contracts/presets
 var preset = SynthParameters.FromJson(fixture);
 Require(preset == new SynthParameters(), "Canonical preset must match native defaults.");
 Require(SynthParameters.FromJson(preset.ToJson()) == preset, "Preset round trip changed values.");
+var routed = preset with { AudioToOsc = 0.15f, AudioToFractal = 0.75f, AudioToCA = 1 };
+Require(SynthParameters.FromJson(routed.ToJson()) == routed, "Audio routing did not survive preset save/load.");
 
 foreach (string key in JsonNode.Parse(fixture)!.AsObject().Select(pair => pair.Key))
 {
@@ -74,6 +76,8 @@ var dc = new AudioAnalysis();
 AudioBands silence = default;
 for (int sample = 0; sample < 1024; sample++) silence = dc.Push(0.5f, 44100);
 Require(silence == default, "DC input must not produce audio modulation.");
+for (int sample = 0; sample < 1024; sample++) silence = dc.Push(float.NaN, 48000);
+Require(silence == default, "Non-finite input must not produce audio modulation.");
 var noRoutes = preset with { AudioToOsc = 0, AudioToFractal = 0, AudioToCA = 0 };
 engine.Reset(); engine.Render(1, noRoutes);
 var unmodulated = engine.Pixels.ToArray();

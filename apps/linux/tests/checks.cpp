@@ -17,6 +17,9 @@ int main(int argc, char** argv) {
     auto p = loadPreset(json);
     require(savePreset(p) == savePreset(Parameters{}), "Canonical defaults differ.");
     require(savePreset(loadPreset(savePreset(p))) == savePreset(p), "Round trip changed values.");
+    auto routed = p;
+    routed.audioToOsc = 0.15f; routed.audioToFractal = 0.75f; routed.audioToCA = 1;
+    require(savePreset(loadPreset(savePreset(routed))) == savePreset(routed), "Audio routes must survive preset save/load.");
     for (const auto& item : json.items()) {
         auto missing = json;
         missing.erase(item.key());

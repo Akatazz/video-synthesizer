@@ -20,7 +20,14 @@ trades precision for guaranteed ES 3 render-target support. Internal resolution
 is capped at 1280×720. Rotation retains parameters and pause state, and clears
 history; GL resources are recreated after context loss.
 
-CI checks preset conformance, builds a debug APK, and runs a renderer launch/reset
+**Enable microphone** requests `RECORD_AUDIO` and starts foreground AudioRecord
+capture. A Kotlin FFT produces bass/mid/high levels for the native shader's
+audio routing controls. Capture stops and clears levels when leaving the activity;
+it never resumes automatically after a background transition. If a permission
+prompt interrupts activation, tap Enable microphone again after granting access.
+See the [audio contract](../../contracts/AUDIO.md).
+
+CI checks preset conformance and synthetic FFT signals, builds a debug APK, and runs a renderer launch/reset
 test on an emulator. Physical-device performance, picker interaction,
-background/foreground behavior, audio/FFT, NDI, Vulkan, camera input, PNG export,
+background/foreground behavior, live microphone input, NDI, Vulkan, camera input, PNG export,
 release signing, and Play Store packaging remain to implement.

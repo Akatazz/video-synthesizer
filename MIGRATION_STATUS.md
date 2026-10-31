@@ -36,7 +36,11 @@ are required. Never commit access tokens.
 - [x] Android Kotlin application source, native OpenGL ES rendering, and build/emulator checks.
 - [x] Verify Linux Release build, preset/renderer checks, and GTK launch on CI.
 - [x] Verify Android preset tests, debug APK build, and emulator renderer/reset test.
-- [ ] Native audio capture, FFT bands, and modulation routing on each platform.
+- [x] Implement native audio capture, FFT bands, and preset routing on each platform:
+      Windows WASAPI, Apple AVAudioEngine/Accelerate, Android AudioRecord/Kotlin,
+      and Linux GStreamer.
+- [ ] Verify live microphone input, permission denial/grant, device changes, and
+      foreground transitions on physical hardware for each platform.
 - [ ] Native NDI integration and lighting calibration on supported platforms.
 - [ ] Camera/video input, patch graph, remaining synthesis modules, and parity checks.
 - [ ] GPU renderer for Windows; full-resolution output and performance measurements.
@@ -65,5 +69,10 @@ own their implementations. Shared contracts contain data and documented behavior
   renderer startup/reset test on an API 35 emulator.
 - A self-contained Windows x64 build is available locally in
   `artifacts/windows/VideoSynthesizer.exe` (the full adjacent publish directory is required).
+- Native audio implementation commit `44ae961` passes all five CI jobs in
+  [run 41233623096](https://github.com/Akatazz/video-synthesizer/actions/runs/41233623096).
+  C#, Accelerate/Swift, Kotlin, and GStreamer FFT checks classify calibrated
+  bass/mid/high tones; Linux also runs a synthetic source through the actual
+  capture pipeline. These checks do not establish live-device microphone behavior.
 
 The goal remains active until outstanding platform work and validation are done.

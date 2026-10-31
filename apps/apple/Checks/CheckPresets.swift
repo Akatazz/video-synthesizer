@@ -10,6 +10,10 @@ struct CheckPresets {
         precondition(preset == SynthParameters(), "Canonical preset differs from defaults")
         let roundTrip = try decoder.decode(SynthParameters.self, from: JSONEncoder().encode(preset)).validated()
         precondition(roundTrip == preset, "Preset round trip changed values")
+        var routed = preset
+        routed.audioToOsc = 0.15; routed.audioToFractal = 0.75; routed.audioToCA = 1
+        let routeRoundTrip = try decoder.decode(SynthParameters.self, from: JSONEncoder().encode(routed)).validated()
+        precondition(routeRoundTrip == routed, "Audio routes must survive preset save/load")
         let object = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         for key in object.keys {
             var missing = object
@@ -38,6 +42,8 @@ struct CheckPresets {
         var dcLevels = AudioBands()
         for _ in 0..<1024 { dcLevels = dc.push(0.5, sampleRate: 44100) }
         precondition(dcLevels == AudioBands(), "DC input must not modulate synthesis")
+        for _ in 0..<1024 { dcLevels = dc.push(.nan, sampleRate: 48000) }
+        precondition(dcLevels == AudioBands(), "Non-finite input must not modulate synthesis")
         print("Swift native FFT checks passed.")
     }
 

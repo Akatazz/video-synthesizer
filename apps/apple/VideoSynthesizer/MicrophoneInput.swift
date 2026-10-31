@@ -9,6 +9,8 @@ final class MicrophoneInput: ObservableObject {
     @Published private(set) var levels = AudioBands()
     private var engine: AVAudioEngine?
     private var generation = 0
+    private var foreground = true
+    private var pendingStart = false
     private var observers: [NSObjectProtocol] = []
 
     init() {
@@ -43,9 +45,28 @@ final class MicrophoneInput: ObservableObject {
                 guard let self, self.generation == request else { return }
                 self.requesting = false
                 guard granted else { self.status = "Microphone access denied. Enable it in system settings to use audio."; return }
+                guard self.foreground else {
+                    self.pendingStart = true
+                    self.requesting = true
+                    self.status = "Microphone access granted. Waiting for the app to become active."
+                    return
+                }
                 do { try self.start(request: request) }
                 catch { self.stop(); self.status = "Microphone unavailable: \(error.localizedDescription)" }
             }
+        }
+    }
+
+    func updateScene(active: Bool, background: Bool) {
+        foreground = active
+        if background || (!active && self.active) { stop(); return }
+        // A system permission prompt can make the scene inactive. Continue the
+        // explicit request once active, while a real background transition cancels it.
+        if active && pendingStart {
+            pendingStart = false
+            requesting = false
+            do { try start(request: generation) }
+            catch { stop(); status = "Microphone unavailable: \(error.localizedDescription)" }
         }
     }
 
@@ -86,6 +107,7 @@ final class MicrophoneInput: ObservableObject {
 
     func stop() {
         generation += 1 // Invalidate permission responses and queued audio callbacks.
+        pendingStart = false
         if let capture = engine {
             capture.inputNode.removeTap(onBus: 0)
             capture.stop()
