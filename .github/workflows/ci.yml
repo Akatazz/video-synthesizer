@@ -49,3 +49,13 @@ jobs:
         with:
           name: video-synthesizer-macos-unsigned
           path: artifacts/VideoSynthesizerMac.zip
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev nlohmann-json3-dev xvfb
+      - run: cmake -S apps/linux -B apps/linux/build -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build apps/linux/build --parallel
+      - run: ctest --test-dir apps/linux/build --output-on-failure
+      - name: Launch GTK preview
+        run: timeout 30s xvfb-run -a apps/linux/build/video-synthesizer --smoke-test
