@@ -1,7 +1,7 @@
 #pragma once
 #include "ndi.hpp"
 
-inline void checkLighting() {
+inline void checkLighting(const std::filesystem::path& fixtures) {
     std::vector<std::uint32_t> image {0xffff0000,0xff00ff00,0xff0000ff,0xff0a0a0a};
     NdiSettings settings; settings.width = settings.height = 2; settings.cutoff = 0;
     if (lightingOutput(image,2,2,settings) != image) throw std::runtime_error("Lighting identity changed channels or orientation.");
@@ -13,6 +13,24 @@ inline void checkLighting() {
     settings.alpha = 2;
     auto inverted = lightingOutput(image,2,2,settings);
     if (inverted[0] != 0x00ffffff || inverted[1] != 0xff000000) throw std::runtime_error("Inverted alpha failed.");
+    std::ifstream input(fixtures);
+    nlohmann::json cases;
+    input >> cases;
+    for (const auto& fixture : cases) {
+        NdiSettings p;
+        p.width = fixture.at("width"); p.height = fixture.at("height");
+        p.cutoff = fixture.at("cutoff"); p.gamma = fixture.at("gamma");
+        p.channel = fixture.at("channel"); p.alpha = fixture.at("alpha");
+        auto bytes = fixture.at("sourceBGRA").get<std::vector<std::uint8_t>>();
+        std::vector<std::uint32_t> pixels(bytes.size()/4);
+        std::memcpy(pixels.data(),bytes.data(),bytes.size());
+        auto actual = lightingOutput(pixels,fixture.at("sourceWidth"),fixture.at("sourceHeight"),p);
+        auto expected = fixture.at("expectedBGRA").get<std::vector<std::uint8_t>>();
+        if (actual.size()*4 != expected.size()) throw std::runtime_error("Lighting fixture size differs.");
+        const auto* result = reinterpret_cast<const std::uint8_t*>(actual.data());
+        for (std::size_t i = 0; i < expected.size(); ++i)
+            if (std::abs(int(result[i])-int(expected[i])) > 1) throw std::runtime_error("Lighting fixture failed: "+fixture.at("name").get<std::string>());
+    }
 }
 
 inline void checkNdiRoundTrip(const std::string& path) {

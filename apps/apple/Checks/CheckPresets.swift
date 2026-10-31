@@ -1,5 +1,12 @@
 import Foundation
 
+private struct LightingFixture: Decodable {
+    var name: String
+    var sourceWidth, sourceHeight, width, height, channel, alpha: Int
+    var cutoff, gamma: Float
+    var sourceBGRA, expectedBGRA: [UInt8]
+}
+
 @main
 struct CheckPresets {
     static func main() throws {
@@ -66,6 +73,15 @@ struct CheckPresets {
             print("Real macOS NDI sender/receiver round trip passed.")
         }
         print("Swift lighting checks passed.")
+        let lightingPath = URL(fileURLWithPath:path).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("lighting-fixtures.json")
+        let cases = try JSONDecoder().decode([LightingFixture].self,from:Data(contentsOf:lightingPath))
+        for fixture in cases {
+            var p = NdiSettings()
+            p.width = fixture.width; p.height = fixture.height; p.cutoff = fixture.cutoff
+            p.gamma = fixture.gamma; p.channel = fixture.channel; p.alpha = fixture.alpha
+            let actual = try LightingOutput.process(fixture.sourceBGRA,width:fixture.sourceWidth,height:fixture.sourceHeight,stride:fixture.sourceWidth*4,settings:p)
+            precondition(actual.count == fixture.expectedBGRA.count && zip(actual,fixture.expectedBGRA).allSatisfy { abs(Int($0.0)-Int($0.1)) <= 1 },"Lighting fixture failed: \(fixture.name)")
+        }
     }
 
     static func expectRejection(_ data: Data) {

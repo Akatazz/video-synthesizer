@@ -77,6 +77,6 @@ int main(int argc, char** argv) {
     capture.stop();
     require(!capture.active() && capture.poll().mid == 0, "Stopping audio must clear levels.");
     std::cout << "Linux preset and renderer checks passed.\n";
-    checkLighting();
+    checkLighting(std::filesystem::path(argv[1]).parent_path().parent_path()/"lighting-fixtures.json");
     if (argc > 2) { checkNdiRoundTrip(argv[2]); std::cout << "Real NDI round trip passed.\n"; }
 }

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text.Json.Nodes;
 using VideoSynthesizer;
 
 static class NdiChecks
@@ -18,7 +19,7 @@ static class NdiChecks
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void FreeVideo(IntPtr receiver, ref NdiRuntime.VideoFrame video);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void DestroyReceive(IntPtr receiver);
 
-    public static void Lighting()
+    public static void Lighting(string fixturePath)
     {
         void Check(bool value, string message) { if (!value) throw new Exception(message); }
         byte[] image = [0,0,255,255, 0,255,0,255, 255,0,0,255, 10,10,10,255];
@@ -33,6 +34,17 @@ static class NdiChecks
         var enlarged = LightingOutput.Process(image, 2, 2, settings with { Width = 4, Height = 4 });
         Check(enlarged[2] == 255 && enlarged[(3*4)*4] == 255, "Resizing changed frame orientation.");
         Check(Marshal.SizeOf<NdiRuntime.VideoFrame>() == 72 && Marshal.OffsetOf<NdiRuntime.VideoFrame>(nameof(NdiRuntime.VideoFrame.Data)).ToInt32() == 40, "NDI video ABI layout is wrong.");
+        foreach (var fixture in JsonNode.Parse(File.ReadAllText(fixturePath))!.AsArray())
+        {
+            var p = new NdiSettings {
+                Width = fixture!["width"]!.GetValue<int>(), Height = fixture["height"]!.GetValue<int>(),
+                BlackCutoff = fixture["cutoff"]!.GetValue<float>(), Gamma = fixture["gamma"]!.GetValue<float>(),
+                Channel = fixture["channel"]!.GetValue<int>(), Alpha = fixture["alpha"]!.GetValue<int>() };
+            byte[] input = fixture["sourceBGRA"]!.AsArray().Select(value => value!.GetValue<byte>()).ToArray();
+            byte[] expected = fixture["expectedBGRA"]!.AsArray().Select(value => value!.GetValue<byte>()).ToArray();
+            var actual = LightingOutput.Process(input,fixture["sourceWidth"]!.GetValue<int>(),fixture["sourceHeight"]!.GetValue<int>(),p);
+            Check(actual.Length == expected.Length && actual.Zip(expected).All(pair => Math.Abs(pair.First-pair.Second) <= 1), $"Lighting fixture failed: {fixture["name"]}");
+        }
         Console.WriteLine("Lighting calibration and NDI ABI checks passed.");
     }
 
