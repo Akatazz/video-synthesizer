@@ -9,8 +9,8 @@ and independent native applications under development.
 - **Windows:** [C# / WPF application](apps/windows/README.md), with a CPU synthesis preview, presets, and PNG export.
 - **macOS:** [SwiftUI / Metal Xcode target](apps/apple/README.md), with native controls, GPU feedback, and presets.
 - **iOS / iPadOS:** [Separate SwiftUI / Metal app target](apps/apple/README.md).
-- **Linux:** planned independent C++ / GTK application.
-- **Android:** planned independent Kotlin / Android SDK application.
+- **Linux:** [C++ / GTK application](apps/linux/README.md), with native controls and CPU feedback rendering.
+- **Android:** [Kotlin / Android SDK application](apps/android/README.md), with OpenGL ES rendering and native controls.
 
 Native applications are early previews. Audio and NDI currently belong to the
 browser implementation; native feature parity remains in progress. See

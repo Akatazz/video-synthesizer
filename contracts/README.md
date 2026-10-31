@@ -16,14 +16,16 @@ JSON, non-finite values, and out-of-range numbers before changing live state.
 Load resets the feedback history. Save records parameters, not simulation state.
 The browser does not yet import this format.
 
-`presets/classic-feedback.json` is the canonical default fixture. C# and Swift
-checks load this same file and verify round trips and rejection behavior.
+`presets/classic-feedback.json` is the canonical default fixture. C#, Swift,
+C++, and Kotlin checks load this same file and verify round trips and rejection
+behavior.
 
 The initial native renderer ports the current browser Julia seed, oscillator
 warp, 3×3 feedback convolution, palette, and compositing. It uses a top-left
 image origin, normalized linear sampling clamped at the edges, separate read and
-write history, and clamped RGB output. C# keeps float32 history; Metal uses
-float16 textures. Pixel-identical output across GPUs is not promised.
+write history, and clamped RGB output. C# and C++ keep float32 history; Metal
+uses float16 textures, and Android uses universally renderable RGBA8 textures.
+Pixel-identical output across GPUs is not promised.
 
 The existing browser feedback formula is **not** a faithful two-species
 Gray–Scott simulation: its RGB recurrence is retained for visual continuity.

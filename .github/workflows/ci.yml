@@ -1,9 +1,13 @@
 name: CI
 on:
   push:
+    branches: [master]
   pull_request:
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   web:
     runs-on: ubuntu-latest
@@ -68,12 +72,14 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
       - name: Check presets and build APK
         working-directory: apps/android
-        run: gradle testDebugUnitTest assembleDebug
+        run: ./gradlew testDebugUnitTest assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: video-synthesizer-android-debug
@@ -88,4 +94,4 @@ jobs:
           api-level: 35
           arch: x86_64
           disable-animations: true
-          script: cd apps/android && gradle connectedDebugAndroidTest
+          script: cd apps/android && ./gradlew connectedDebugAndroidTest

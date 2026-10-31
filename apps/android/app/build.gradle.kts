@@ -3,6 +3,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 android {
+    useLibrary("android.test.runner")
+    useLibrary("android.test.base")
     namespace = "com.akatazz.videosynthesizer"
     compileSdk = 36
     defaultConfig {

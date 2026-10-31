@@ -30,10 +30,12 @@ are required. Never commit access tokens.
 - [x] macOS SwiftUI/Metal application source and shared Xcode scheme.
 - [x] Separate iOS/iPadOS target with UIKit-hosted Metal surface and mobile controls.
 - [x] Versioned preset fixture and C#/Swift contract checks.
-- [ ] Verify Apple compilation and shader compilation on the macOS CI runner.
+- [x] Verify Apple compilation and shader compilation on the macOS CI runner.
 - [ ] Verify Apple rendering, file pickers, rotation, and lifecycle on hardware.
-- [ ] Linux C++/GTK application and Linux build checks.
-- [ ] Android Kotlin application with native GPU rendering and Android build checks.
+- [x] Linux C++/GTK application source, preset/renderer checks, and GTK launch check.
+- [x] Android Kotlin application source, native OpenGL ES rendering, and build/emulator checks.
+- [x] Verify Linux Release build, preset/renderer checks, and GTK launch on CI.
+- [ ] Verify Android build and emulator results after adding the implementation.
 - [ ] Native audio capture, FFT bands, and modulation routing on each platform.
 - [ ] Native NDI integration and lighting calibration on supported platforms.
 - [ ] Camera/video input, patch graph, remaining synthesis modules, and parity checks.
@@ -52,5 +54,10 @@ own their implementations. Shared contracts contain data and documented behavior
 - Windows renderer and preset checks pass; initial five-frame 480×270 sample
   averaged about 11 ms/frame on the development machine. This is a short CPU
   preview measurement, not a production performance guarantee.
+- Running Windows UI visually inspected: live preview and all controls display correctly.
+- GitHub macOS runner passes the Swift contract check and builds both macOS and
+  iOS Simulator targets, including their Metal libraries (commit `3481272`).
+- GitHub Linux runner passes C++ compilation with warnings as errors, preset and
+  renderer checks, and a three-frame GTK launch under Xvfb (commit `270e96e`).
 
 The goal remains active until outstanding platform work and validation are done.
