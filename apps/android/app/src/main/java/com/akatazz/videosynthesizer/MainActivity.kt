@@ -1,6 +1,8 @@
 package com.akatazz.videosynthesizer
 
 import android.app.Activity
+import android.Manifest
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.graphics.Color
 import android.opengl.GLSurfaceView
@@ -17,6 +19,11 @@ class MainActivity : Activity() {
     private var parameters = SynthParameters()
     private var paused = false
     private var pendingSave: String? = null
+    private lateinit var microphone: MicrophoneInput
+    private lateinit var microphoneButton: Button
+    private lateinit var audioStatus: TextView
+    private var permissionPending = false
+    private var foreground = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,11 +68,31 @@ class MainActivity : Activity() {
             }
         })
         status = TextView(this).apply { text = "Live · OpenGL ES preview" }
+        audioStatus = TextView(this).apply { text = "Microphone off" }
         renderer = SynthRenderer(this).apply {
             parameters = this@MainActivity.parameters
             paused = this@MainActivity.paused
             onError = { message -> runOnUiThread { status.text = message } }
         }
+        microphone = MicrophoneInput(onLevels = { levels ->
+            renderer.audioBands = levels
+            if (levels != AudioBands()) audioStatus.text = String.format(Locale.ROOT,
+                "Microphone live · Bass %.2f · Mid %.2f · High %.2f", levels.bass, levels.mid, levels.high)
+        }, onError = { message ->
+            microphoneButton.text = "Enable microphone"
+            audioStatus.text = message
+        })
+        microphoneButton = Button(this).apply {
+            text = "Enable microphone"
+            setOnClickListener {
+                if (microphone.active || permissionPending) { stopMicrophone(); return@setOnClickListener }
+                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    permissionPending = true
+                    requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 10)
+                } else startMicrophone()
+            }
+        }
+        root.addView(microphoneButton)
         surface = GLSurfaceView(this).apply {
             setEGLContextClientVersion(3)
             setRenderer(renderer)
@@ -75,6 +102,7 @@ class MainActivity : Activity() {
         controls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(ScrollView(this).apply { addView(controls) }, LinearLayout.LayoutParams(-1, 0, 1f))
         root.addView(status)
+        root.addView(audioStatus)
         buildControls()
     }
 
@@ -132,6 +160,30 @@ class MainActivity : Activity() {
         super.onSaveInstanceState(outState)
     }
 
-    override fun onResume() { super.onResume(); surface.onResume() }
-    override fun onPause() { surface.onPause(); super.onPause() }
+    private fun startMicrophone() {
+        if (!foreground) return
+        try {
+            microphone.start()
+            microphoneButton.text = "Disable microphone"
+            audioStatus.text = "Microphone live"
+        } catch (failure: Exception) { audioStatus.text = "Microphone unavailable: ${failure.message}" }
+    }
+
+    private fun stopMicrophone() {
+        permissionPending = false
+        microphone.stop()
+        microphoneButton.text = "Enable microphone"
+        audioStatus.text = "Microphone off"
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != 10 || !permissionPending) return
+        permissionPending = false
+        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED && foreground) startMicrophone()
+        else audioStatus.text = "Microphone access denied or request interrupted. Tap Enable microphone to retry."
+    }
+
+    override fun onResume() { super.onResume(); foreground = true; surface.onResume() }
+    override fun onPause() { foreground = false; stopMicrophone(); surface.onPause(); super.onPause() }
 }

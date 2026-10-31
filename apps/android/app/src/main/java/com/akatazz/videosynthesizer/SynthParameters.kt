@@ -12,8 +12,11 @@ data class SynthParameters(
     val caKill: Float = 0.06f,
     val feedbackMix: Float = 0.95f,
     val colorShift: Float = 0f,
+    val audioToOsc: Float = 0.5f,
+    val audioToFractal: Float = 0.5f,
+    val audioToCA: Float = 0.2f,
 ) {
-    fun values() = floatArrayOf(oscFreq, oscSpeed, fractalZoom, fractalDetail, fractalMorph, caFeed, caKill, feedbackMix, colorShift)
+    fun values() = floatArrayOf(oscFreq, oscSpeed, fractalZoom, fractalDetail, fractalMorph, caFeed, caKill, feedbackMix, colorShift, audioToOsc, audioToFractal, audioToCA)
 
     fun validated(): SynthParameters {
         values().forEachIndexed { index, value ->
@@ -50,15 +53,21 @@ data class SynthParameters(
             Field("caKill", "Cell kill", 0f, 0.1f),
             Field("feedbackMix", "Feedback mix", 0f, 1f),
             Field("colorShift", "Color shift", 0f, 1f),
+            Field("audioToOsc", "Mid → oscillator", 0f, 1f),
+            Field("audioToFractal", "Bass → fractal", 0f, 1f),
+            Field("audioToCA", "High → cell feed", 0f, 1f),
         )
 
-        private fun fromValues(v: FloatArray) = SynthParameters(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8])
+        private fun fromValues(v: FloatArray) = SynthParameters(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11])
 
         fun fromJson(text: String): SynthParameters {
             val json = Json.parseToJsonElement(text).jsonObject
             val version = json.getValue("schemaVersion").jsonPrimitive
             require(!version.isString && version.intOrNull == 1) { "Unsupported preset version." }
             val values = fields.map {
+                if (it.key !in json && it.key == "audioToOsc") return@map 0.5f
+                if (it.key !in json && it.key == "audioToFractal") return@map 0.5f
+                if (it.key !in json && it.key == "audioToCA") return@map 0.2f
                 val value = json.getValue(it.key).jsonPrimitive
                 require(!value.isString) { "${it.label} must be a number." }
                 requireNotNull(value.floatOrNull) { "${it.label} must be a number." }

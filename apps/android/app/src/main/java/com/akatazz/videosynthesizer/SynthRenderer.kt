@@ -14,6 +14,7 @@ class SynthRenderer(context: Context) : GLSurfaceView.Renderer {
     private val displaySource = context.assets.open("display.frag").bufferedReader().use { it.readText() }
     // Activity writes immutable snapshots; only the GL thread touches GL state.
     @Volatile var parameters = SynthParameters()
+    @Volatile var audioBands = AudioBands()
     @Volatile var paused = false
     @Volatile var resetGeneration = 0
     @Volatile var frameCount = 0
@@ -110,7 +111,8 @@ class SynthRenderer(context: Context) : GLSurfaceView.Renderer {
         if (!paused || reset) {
             if (!paused && !reset) time += delta
             val values = parameters.values()
-            val uniforms = floatArrayOf(time, width.toFloat(), height.toFloat(), *values)
+            val audio = audioBands
+            val uniforms = floatArrayOf(time, width.toFloat(), height.toFloat(), *values, audio.bass, audio.mid, audio.high)
             glUseProgram(synthProgram)
             glUniform1fv(parameterLocation, uniforms.size, uniforms, 0)
             glBindFramebuffer(GL_FRAMEBUFFER, buffers[1 - readIndex])
