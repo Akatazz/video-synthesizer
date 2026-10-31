@@ -248,7 +248,7 @@ static void activate(GtkApplication* app, gpointer smoke) {
         auto* choice = gtk_drop_down_new_from_strings(choices);
         gtk_drop_down_set_selected(GTK_DROP_DOWN(choice),selected);
         g_object_set_data(G_OBJECT(choice),"setting",const_cast<char*>(key));
-        g_signal_connect(choice,"notify::selected",G_CALLBACK(+[](GObject* control, GParamSpec*, gpointer data) {
+        g_signal_connect(choice,"notify::selected",G_CALLBACK((+[](GObject* control, GParamSpec*, gpointer data) {
             auto* s = static_cast<State*>(data);
             int selected = gtk_drop_down_get_selected(GTK_DROP_DOWN(control));
             std::string key = static_cast<const char*>(g_object_get_data(control,"setting"));
@@ -264,7 +264,7 @@ static void activate(GtkApplication* app, gpointer smoke) {
                 }
                 gtk_button_set_label(GTK_BUTTON(s->ndiButton),"Start NDI output");
             }
-        }),state);
+        })),state);
         gtk_box_append(GTK_BOX(controls),choice);
     };
     const char* resolutions[] {"128 × 128","256 × 256","512 × 512","512 × 64","1024 × 128","1280 × 720","1920 × 1080",nullptr};

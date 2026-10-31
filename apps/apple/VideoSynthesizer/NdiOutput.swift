@@ -80,7 +80,7 @@ final class NdiOutput: ObservableObject {
             guard !sourceName.contains("\0") else { throw SynthParameters.PresetError.invalid("Invalid NDI source name.") }
             var error = [CChar](repeating: 0,count: 512)
             let opened = runtimePath.withCString { path in
-                sourceName.withCString { name in vs_ndi_open(path,name,&error,error.count) }
+                sourceName.withCString { name in vs_ndi_open(path,name,&error,512) }
             }
             guard let opened else { throw SynthParameters.PresetError.invalid(String(cString:error)) }
             worker.sync { sender = opened }

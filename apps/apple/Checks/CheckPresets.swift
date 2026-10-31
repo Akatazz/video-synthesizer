@@ -61,7 +61,7 @@ struct CheckPresets {
         precondition(inverted[3] == 0 && inverted[7] == 255,"Inverted alpha failed")
         if CommandLine.arguments.count > 2 {
             var error = [CChar](repeating:0,count:512)
-            let success = CommandLine.arguments[2].withCString { vs_ndi_test_roundtrip($0,&error,error.count) }
+            let success = CommandLine.arguments[2].withCString { vs_ndi_test_roundtrip($0,&error,512) }
             precondition(success == 1,String(cString:error))
             print("Real macOS NDI sender/receiver round trip passed.")
         }
