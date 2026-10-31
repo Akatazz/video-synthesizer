@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Windows.Documents;
 using Microsoft.Win32;
 
 namespace VideoSynthesizer;
@@ -20,6 +21,11 @@ public partial class MainWindow : Window
     private double previousTime;
     private float synthTime;
     private readonly MicrophoneCapture microphone = new();
+    private readonly NdiOutput ndi = new();
+    private NdiSettings ndiSettings = new();
+    private string ndiName = "LZX-V Synth Output (Windows)";
+    private string? ndiRuntimePath;
+    private Button? ndiButton;
 
     public MainWindow()
     {
@@ -29,7 +35,7 @@ public partial class MainWindow : Window
         BuildControls();
         timer.Tick += RenderFrame;
         Loaded += (_, _) => timer.Start();
-        Closed += (_, _) => { closed = true; timer.Stop(); microphone.Dispose(); };
+        Closed += (_, _) => { closed = true; timer.Stop(); microphone.Dispose(); ndi.Dispose(); };
         Deactivated += (_, _) => StopMicrophone();
     }
 
@@ -48,6 +54,65 @@ public partial class MainWindow : Window
         AddSlider("Mid → oscillator", 0, 1, parameters.AudioToOsc, v => parameters = parameters with { AudioToOsc = v });
         AddSlider("Bass → fractal", 0, 1, parameters.AudioToFractal, v => parameters = parameters with { AudioToFractal = v });
         AddSlider("High → cell feed", 0, 1, parameters.AudioToCA, v => parameters = parameters with { AudioToCA = v });
+        BuildNdiControls();
+    }
+
+    private void BuildNdiControls()
+    {
+        Controls.Children.Add(new TextBlock { Text = "NDI OUTPUT", FontSize = 18, Margin = new Thickness(0, 20, 0, 8) });
+        var linkText = new TextBlock { Margin = new Thickness(0, 0, 0, 8) };
+        var link = new Hyperlink(new Run("NDI® technology · ndi.video")) { NavigateUri = new Uri("https://ndi.video") };
+        link.RequestNavigate += (_, e) => { Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true }); e.Handled = true; };
+        linkText.Inlines.Add(link); Controls.Children.Add(linkText);
+        var name = new TextBox { Text = ndiName, Margin = new Thickness(0, 0, 0, 8) };
+        System.Windows.Automation.AutomationProperties.SetName(name, "NDI source name");
+        name.TextChanged += (_, _) => { StopNdi(); ndiName = name.Text; };
+        Controls.Children.Add(name);
+        var runtime = new Button { Content = "NDI runtime…", Margin = new Thickness(0, 0, 0, 8) };
+        runtime.Click += (_, _) =>
+        {
+            var dialog = new OpenFileDialog { Title = "Choose the installed NDI runtime DLL", Filter = "NDI runtime (*.dll)|*.dll" };
+            if (dialog.ShowDialog(this) == true) { StopNdi(); ndiRuntimePath = dialog.FileName; NdiStatus.Text = "NDI runtime selected. Restart the app to change an already loaded runtime."; }
+        };
+        Controls.Children.Add(runtime);
+        (string Label, int W, int H)[] resolutions = [
+            ("Matrix 128 × 128",128,128), ("Matrix 256 × 256",256,256), ("Matrix 512 × 512",512,512),
+            ("Linear 512 × 64",512,64), ("Wide 1024 × 128",1024,128), ("HD 1280 × 720",1280,720), ("Full HD 1920 × 1080",1920,1080) ];
+        AddChoice("NDI resolution", resolutions.Select(p => p.Label).ToArray(), Array.FindIndex(resolutions, p => p.W == ndiSettings.Width && p.H == ndiSettings.Height), index =>
+        { StopNdi(); ndiSettings = ndiSettings with { Width = resolutions[index].W, Height = resolutions[index].H }; });
+        int[] rates = [15, 25, 30];
+        AddChoice("NDI frame rate", rates.Select(rate => $"{rate} fps").ToArray(), Array.IndexOf(rates, ndiSettings.Fps), index =>
+        { StopNdi(); ndiSettings = ndiSettings with { Fps = rates[index] }; });
+        AddSlider("NDI black cutoff", 0, 0.25, ndiSettings.BlackCutoff, v => ndiSettings = ndiSettings with { BlackCutoff = v });
+        AddSlider("NDI gamma", 0.5, 2.5, ndiSettings.Gamma, v => ndiSettings = ndiSettings with { Gamma = v });
+        AddChoice("NDI channels", ["RGB", "Luma", "Red", "Green", "Blue"], ndiSettings.Channel, index => ndiSettings = ndiSettings with { Channel = index });
+        AddChoice("NDI alpha", ["Opaque", "Luma alpha", "Inverted luma alpha"], ndiSettings.Alpha, index => ndiSettings = ndiSettings with { Alpha = index });
+        ndiButton = new Button { Content = ndi.IsRunning ? "Stop NDI output" : "Start NDI output", Margin = new Thickness(0, 8, 0, 8) };
+        ndiButton.Click += (_, _) =>
+        {
+            if (ndi.IsRunning) { StopNdi(); return; }
+            try { ndiSettings.Validate(); ndi.Start(ndiName, ndiRuntimePath); ndiButton.Content = "Stop NDI output"; }
+            catch (Exception error) { NdiStatus.Text = $"NDI unavailable: {error.Message}"; }
+        };
+        Controls.Children.Add(ndiButton);
+    }
+
+    private void AddChoice(string label, string[] items, int selected, Action<int> update)
+    {
+        Controls.Children.Add(new TextBlock { Text = label, Margin = new Thickness(0, 8, 0, 4) });
+        var choice = new ComboBox { ItemsSource = items, SelectedIndex = Math.Max(0, selected), Margin = new Thickness(0, 0, 0, 8) };
+        System.Windows.Automation.AutomationProperties.SetName(choice, label);
+        choice.SelectionChanged += (_, _) => { if (choice.SelectedIndex >= 0) update(choice.SelectedIndex); };
+        Controls.Children.Add(choice);
+    }
+
+    private void StopNdi() { ndi.Stop(); if (ndiButton != null) ndiButton.Content = "Start NDI output"; NdiStatus.Text = "NDI off"; }
+
+    private void SubmitNdi()
+    {
+        ndi.Submit(engine.Pixels, engine.Width, engine.Height, ndiSettings);
+        NdiStatus.Text = ndi.Status;
+        if (!ndi.IsRunning && ndiButton != null) ndiButton.Content = "Start NDI output";
     }
 
     private void AddSlider(string name, double min, double max, float value, Action<float> update)
@@ -70,7 +135,7 @@ public partial class MainWindow : Window
         double now = clock.Elapsed.TotalSeconds;
         double delta = Math.Min(now - previousTime, 0.1);
         previousTime = now;
-        if (paused && !resetPending) return;
+        if (paused && !resetPending) { SubmitNdi(); return; }
         rendering = true;
         if (resetPending) { engine.Reset(); synthTime = 0; resetPending = false; }
         else synthTime += (float)delta;
@@ -82,6 +147,7 @@ public partial class MainWindow : Window
             await Task.Run(() => engine.Render(time, snapshot, bands));
             if (closed) return;
             bitmap.WritePixels(new Int32Rect(0, 0, engine.Width, engine.Height), engine.Pixels, engine.Width * 4, 0);
+            SubmitNdi();
             Status.Text = $"Windows preview · {engine.Width} × {engine.Height} · {frameClock.Elapsed.TotalMilliseconds:0} ms/frame · { (paused ? "Paused" : "Live") }";
         }
         catch (Exception error) { timer.Stop(); ShowError(error); }

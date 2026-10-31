@@ -88,3 +88,5 @@ Require(!first.SequenceEqual(engine.Pixels), "Audio modulation must affect synth
 var clock = Stopwatch.StartNew();
 for (int i = 0; i < 5; i++) preview.Render(i / 30f, preset);
 Console.WriteLine($"Preset and renderer checks passed. Preview average: {clock.Elapsed.TotalMilliseconds / 5:0.0} ms/frame.");
+NdiChecks.Lighting();
+if (args.Length > 1) NdiChecks.RoundTrip(args[1]);

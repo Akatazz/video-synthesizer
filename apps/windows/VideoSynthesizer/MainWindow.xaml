@@ -34,6 +34,7 @@
   <StackPanel Grid.Row="2" Margin="0,16,0,0">
    <TextBlock x:Name="Status" Text="Starting preview…" TextWrapping="Wrap" Foreground="#ACB8C4"/>
    <TextBlock x:Name="AudioStatus" Text="Microphone off" TextWrapping="Wrap" Foreground="#ACB8C4"/>
+   <TextBlock x:Name="NdiStatus" Text="NDI off" TextWrapping="Wrap" Foreground="#ACB8C4"/>
   </StackPanel>
  </Grid>
 </Window>

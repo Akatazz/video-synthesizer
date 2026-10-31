@@ -10,5 +10,7 @@
     <Compile Include="../VideoSynthesizer/SynthParameters.cs" Link="SynthParameters.cs" />
     <Compile Include="../VideoSynthesizer/SynthEngine.cs" Link="SynthEngine.cs" />
     <Compile Include="../VideoSynthesizer/AudioAnalysis.cs" Link="AudioAnalysis.cs" />
+    <Compile Include="../VideoSynthesizer/NdiSettings.cs" Link="NdiSettings.cs" />
+    <Compile Include="../VideoSynthesizer/NdiRuntime.cs" Link="NdiRuntime.cs" />
   </ItemGroup>
 </Project>
