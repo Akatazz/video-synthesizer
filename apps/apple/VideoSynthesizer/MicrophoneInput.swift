@@ -59,7 +59,13 @@ final class MicrophoneInput: ObservableObject {
 
     func updateScene(active: Bool, background: Bool) {
         foreground = active
+        #if os(macOS)
+        // An explicitly enabled desktop input must survive focus changes to a
+        // lighting console. Pending permission requests still cancel on background.
+        if background && requesting { stop(); return }
+        #else
         if background || (!active && self.active) { stop(); return }
+        #endif
         // A system permission prompt can make the scene inactive. Continue the
         // explicit request once active, while a real background transition cancels it.
         if active && pendingStart {

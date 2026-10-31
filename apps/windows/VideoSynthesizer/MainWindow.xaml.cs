@@ -26,6 +26,9 @@ public partial class MainWindow : Window
     private string ndiName = "LZX-V Synth Output (Windows)";
     private string? ndiRuntimePath;
     private Button? ndiButton;
+    private readonly bool backgroundCheck = Environment.GetCommandLineArgs().Contains("--background-smoke-test");
+    private byte[]? firstCheckFrame;
+    private int checkFrames;
 
     public MainWindow()
     {
@@ -34,9 +37,26 @@ public partial class MainWindow : Window
         Preview.Source = bitmap;
         BuildControls();
         timer.Tick += RenderFrame;
-        Loaded += (_, _) => timer.Start();
+        Loaded += (_, _) =>
+        {
+            if (backgroundCheck)
+            {
+                Hide();
+                string[] args = Environment.GetCommandLineArgs();
+                int flag = Array.IndexOf(args,"--background-smoke-test");
+                if (flag + 1 < args.Length)
+                {
+                    try
+                    {
+                        ndiSettings = new NdiSettings { Width = 64, Height = 36 };
+                        ndi.Start("LZX-V Background Check",args[flag + 1]);
+                    }
+                    catch (Exception error) { FailBackgroundCheck(error.Message); return; }
+                }
+            }
+            timer.Start();
+        };
         Closed += (_, _) => { closed = true; timer.Stop(); microphone.Dispose(); ndi.Dispose(); };
-        Deactivated += (_, _) => StopMicrophone();
     }
 
     private void BuildControls()
@@ -148,10 +168,38 @@ public partial class MainWindow : Window
             if (closed) return;
             bitmap.WritePixels(new Int32Rect(0, 0, engine.Width, engine.Height), engine.Pixels, engine.Width * 4, 0);
             SubmitNdi();
+            if (backgroundCheck) VerifyBackgroundFrame();
             Status.Text = $"Windows preview · {engine.Width} × {engine.Height} · {frameClock.Elapsed.TotalMilliseconds:0} ms/frame · { (paused ? "Paused" : "Live") }";
         }
-        catch (Exception error) { timer.Stop(); ShowError(error); }
+        catch (Exception error)
+        {
+            timer.Stop();
+            if (backgroundCheck) FailBackgroundCheck(error.Message); else ShowError(error);
+        }
         finally { rendering = false; }
+    }
+
+    private void VerifyBackgroundFrame()
+    {
+        firstCheckFrame ??= engine.Pixels.ToArray();
+        checkFrames++;
+        bool expectsNdi = Environment.GetCommandLineArgs().Length > Array.IndexOf(Environment.GetCommandLineArgs(),"--background-smoke-test") + 1;
+        if (IsVisible) { FailBackgroundCheck("Test window became visible."); return; }
+        if (checkFrames < 3) return;
+        if (firstCheckFrame.SequenceEqual(engine.Pixels)) { FailBackgroundCheck("Hidden synthesis did not advance."); return; }
+        if (expectsNdi && !ndi.Status.Contains("64 × 36"))
+        {
+            if (!ndi.IsRunning || clock.Elapsed.TotalSeconds > 8) FailBackgroundCheck(ndi.Status);
+            return;
+        }
+        Console.WriteLine($"Hidden WPF synthesis advanced across {checkFrames} frames. {ndi.Status}");
+        Application.Current.Shutdown(0);
+    }
+
+    private static void FailBackgroundCheck(string error)
+    {
+        Console.Error.WriteLine("Background check failed: " + error);
+        Application.Current.Shutdown(1);
     }
 
     private void Pause_Click(object sender, RoutedEventArgs e)

@@ -30,6 +30,8 @@ jobs:
           dotnet-version: '10.0.x'
       - run: dotnet run --project apps/windows/VideoSynthesizer.Checks -c Release
       - run: dotnet build apps/windows/VideoSynthesizer -c Release
+      - name: Verify hidden WPF synthesis
+        run: dotnet run --project apps/windows/VideoSynthesizer -c Release --no-build -- --background-smoke-test
       - name: Obtain existing project dependency's NDI runtime for interoperability checks
         shell: bash
         run: |
@@ -39,6 +41,9 @@ jobs:
       - name: Verify real NDI sender and receiver
         shell: pwsh
         run: dotnet run --project apps/windows/VideoSynthesizer.Checks -c Release -- contracts/presets/classic-feedback.json (Join-Path $PWD 'artifacts/ndi/package/Processing.NDI.Lib.x64.dll')
+      - name: Verify hidden WPF NDI output
+        shell: pwsh
+        run: dotnet run --project apps/windows/VideoSynthesizer -c Release --no-build -- --background-smoke-test (Join-Path $PWD 'artifacts/ndi/package/Processing.NDI.Lib.x64.dll')
       - run: dotnet publish apps/windows/VideoSynthesizer -c Release -r win-x64 --self-contained true -o artifacts/windows
       - uses: actions/upload-artifact@v4
         with:
@@ -87,6 +92,10 @@ jobs:
         run: apps/linux/build/synth-checks contracts/presets/classic-feedback.json "$PWD/artifacts/ndi/package/libndi.so.6"
       - name: Launch GTK preview
         run: timeout 30s xvfb-run -a apps/linux/build/video-synthesizer --smoke-test
+      - name: Verify unmapped GTK synthesis
+        run: timeout 30s xvfb-run -a apps/linux/build/video-synthesizer --background-smoke-test
+      - name: Verify unmapped GTK NDI output
+        run: timeout 30s xvfb-run -a apps/linux/build/video-synthesizer --background-ndi-smoke-test "$PWD/artifacts/ndi/package/libndi.so.6"
   android:
     runs-on: ubuntu-latest
     steps:

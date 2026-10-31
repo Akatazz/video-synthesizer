@@ -3,6 +3,13 @@
 #include <gtk/gtk.h>
 #include <fstream>
 #include <memory>
+#include <iostream>
+
+struct LaunchOptions {
+    int smoke = 0;
+    bool completed = false;
+    std::string runtime;
+};
 
 struct State {
     Parameters parameters;
@@ -15,10 +22,14 @@ struct State {
     GtkWidget *window = nullptr, *preview = nullptr, *status = nullptr;
     GtkWidget *audioStatus = nullptr, *microphoneButton = nullptr;
     std::array<GtkWidget*, 12> sliders {};
-    bool paused = false, reset = true, smoke = false;
+    bool paused = false, reset = true;
+    LaunchOptions* options = nullptr;
+    guint renderTimer = 0;
+    std::vector<std::uint32_t> firstCheckFrame;
     float time = 0;
-    gint64 previous = 0, lastFrame = 0;
+    gint64 previous = 0;
     int frames = 0;
+    ~State() { if (renderTimer) g_source_remove(renderTimer); }
 };
 
 static void showError(State* state, const std::string& error) {
@@ -101,13 +112,11 @@ static void draw(GtkDrawingArea*, cairo_t* context, int width, int height, gpoin
     cairo_surface_destroy(surface);
 }
 
-static gboolean tick(GtkWidget*, GdkFrameClock* clock, gpointer data) {
+static gboolean tick(gpointer data) {
     auto* state = static_cast<State*>(data);
-    gint64 now = gdk_frame_clock_get_frame_time(clock);
-    if (now - state->lastFrame < 33333) return G_SOURCE_CONTINUE;
+    gint64 now = g_get_monotonic_time();
     float delta = state->previous ? std::min((now - state->previous) / 1e6f, 0.1f) : 0;
     state->previous = now;
-    state->lastFrame = now;
     AudioBands bands;
     try {
         bands = state->microphone.poll();
@@ -128,19 +137,35 @@ static gboolean tick(GtkWidget*, GdkFrameClock* clock, gpointer data) {
     if (state->reset) { state->engine.reset(); state->time = 0; state->reset = false; }
     else state->time += delta;
     try { state->engine.render(state->time, state->parameters, bands); }
-    catch (const std::exception& error) { showError(state, error.what()); return G_SOURCE_REMOVE; }
+    catch (const std::exception& error) {
+        showError(state,error.what()); state->microphone.stop(); state->ndi.stop();
+        state->renderTimer = 0;
+        if (state->options->smoke) g_application_quit(G_APPLICATION(gtk_window_get_application(GTK_WINDOW(state->window))));
+        return G_SOURCE_REMOVE;
+    }
     gtk_widget_queue_draw(state->preview);
     state->ndi.submit(state->engine.pixels,480,270,state->ndiSettings);
     gtk_label_set_text(GTK_LABEL(state->ndiStatus),state->ndi.status().c_str());
     if (!state->ndi.active()) gtk_button_set_label(GTK_BUTTON(state->ndiButton),"Start NDI output");
-    if (state->smoke && ++state->frames == 3)
-        g_application_quit(G_APPLICATION(gtk_window_get_application(GTK_WINDOW(state->window))));
+    if (state->options->smoke) {
+        if (state->frames++ == 0) state->firstCheckFrame = state->engine.pixels;
+        bool hidden = !gtk_widget_get_mapped(state->window);
+        bool ndiReady = state->options->smoke != 3 || state->ndi.status().find("128 × 128") != std::string::npos;
+        if (state->frames >= 3 && ndiReady && (state->options->smoke == 1 || hidden)) {
+            state->options->completed = state->firstCheckFrame != state->engine.pixels;
+            std::cout << (hidden ? "Unmapped" : "Visible") << " GTK synthesis advanced across " << state->frames << " frames. " << state->ndi.status() << '\n';
+            g_application_quit(G_APPLICATION(gtk_window_get_application(GTK_WINDOW(state->window))));
+        } else if (state->frames > 240 || (state->options->smoke == 3 && !state->ndi.active())) {
+            std::cerr << "Background check failed: " << state->ndi.status() << '\n';
+            g_application_quit(G_APPLICATION(gtk_window_get_application(GTK_WINDOW(state->window))));
+        }
+    }
     return G_SOURCE_CONTINUE;
 }
 
-static void activate(GtkApplication* app, gpointer smoke) {
+static void activate(GtkApplication* app, gpointer options) {
     auto* state = new State;
-    state->smoke = GPOINTER_TO_INT(smoke);
+    state->options = static_cast<LaunchOptions*>(options);
     state->window = gtk_application_window_new(app);
     g_object_set_data_full(G_OBJECT(state->window), "synth-state", state, [](gpointer data) { delete static_cast<State*>(data); });
     gtk_window_set_title(GTK_WINDOW(state->window), "LZX-V · Video Synthesizer");
@@ -184,13 +209,11 @@ static void activate(GtkApplication* app, gpointer smoke) {
             catch (const std::exception& error) { gtk_label_set_text(GTK_LABEL(s->audioStatus), error.what()); }
         }
     }), state);
-    g_signal_connect(state->window, "notify::is-active", G_CALLBACK(+[](GObject* window, GParamSpec*, gpointer data) {
+    g_signal_connect(state->window, "close-request", G_CALLBACK(+[](GtkWindow*, gpointer data) -> gboolean {
         auto* s = static_cast<State*>(data);
-        if (!gtk_window_is_active(GTK_WINDOW(window))) {
-            s->microphone.stop();
-            gtk_button_set_label(GTK_BUTTON(s->microphoneButton), "Enable microphone");
-            gtk_label_set_text(GTK_LABEL(s->audioStatus), "Microphone off");
-        }
+        if (s->renderTimer) { g_source_remove(s->renderTimer); s->renderTimer = 0; }
+        s->microphone.stop(); s->ndi.stop();
+        return FALSE;
     }), state);
     auto* body = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 24);
     gtk_widget_set_vexpand(body, true);
@@ -311,16 +334,34 @@ static void activate(GtkApplication* app, gpointer smoke) {
     gtk_label_set_xalign(GTK_LABEL(state->ndiStatus),0);
     gtk_label_set_wrap(GTK_LABEL(state->ndiStatus),true);
     gtk_box_append(GTK_BOX(root),state->ndiStatus);
-    gtk_widget_add_tick_callback(state->window, tick, state, nullptr);
+    state->renderTimer = g_timeout_add_full(G_PRIORITY_DEFAULT,33,tick,state,nullptr);
     gtk_window_present(GTK_WINDOW(state->window));
+    if (state->options->smoke >= 2) {
+        g_application_hold(G_APPLICATION(app));
+        gtk_widget_set_visible(state->window,FALSE);
+        if (state->options->smoke == 3) {
+            state->ndiSettings.width = state->ndiSettings.height = 128;
+            try { state->ndi.start("LZX-V Background Check",state->options->runtime); }
+            catch (const std::exception& error) { std::cerr << error.what() << '\n'; g_application_quit(G_APPLICATION(app)); }
+        }
+    }
 }
 
 int main(int argc, char** argv) {
     gst_init(nullptr, nullptr);
-    bool smoke = argc > 1 && std::string(argv[1]) == "--smoke-test";
+    LaunchOptions options;
+    if (argc > 1) {
+        std::string flag = argv[1];
+        options.smoke = flag == "--smoke-test" ? 1 : flag == "--background-smoke-test" ? 2 : flag == "--background-ndi-smoke-test" ? 3 : 0;
+        if (options.smoke == 3) {
+            if (argc < 3) { std::cerr << "Provide an NDI runtime library path.\n"; return 1; }
+            options.runtime = argv[2];
+        }
+    }
     auto* app = gtk_application_new("com.akatazz.videosynthesizer", G_APPLICATION_DEFAULT_FLAGS);
-    g_signal_connect(app, "activate", G_CALLBACK(activate), GINT_TO_POINTER(smoke));
-    int result = g_application_run(G_APPLICATION(app), smoke ? 1 : argc, argv);
+    g_signal_connect(app, "activate", G_CALLBACK(activate), &options);
+    int result = g_application_run(G_APPLICATION(app), options.smoke ? 1 : argc, argv);
+    while (auto* windows = gtk_application_get_windows(app)) gtk_window_destroy(GTK_WINDOW(windows->data));
     g_object_unref(app);
-    return result;
+    return options.smoke && !options.completed ? 1 : result;
 }
