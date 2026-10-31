@@ -5,10 +5,11 @@ import SwiftUI
 struct MetalSurface: NSViewRepresentable {
     var parameters: SynthParameters
     var bands: AudioBands
+    var ndi: NdiOutput
     var paused: Bool
     var resetID: Int
     var onError: (String) -> Void
-    func makeCoordinator() -> SynthRenderer { SynthRenderer(onError: onError) }
+    func makeCoordinator() -> SynthRenderer { SynthRenderer(ndi:ndi,onError: onError) }
     func makeNSView(context: Context) -> MTKView { context.coordinator.makeView() }
     func updateNSView(_ view: MTKView, context: Context) {
         context.coordinator.update(parameters, bands: bands, paused: paused, resetID: resetID)
@@ -22,10 +23,11 @@ struct MetalSurface: NSViewRepresentable {
 struct MetalSurface: UIViewRepresentable {
     var parameters: SynthParameters
     var bands: AudioBands
+    var ndi: NdiOutput
     var paused: Bool
     var resetID: Int
     var onError: (String) -> Void
-    func makeCoordinator() -> SynthRenderer { SynthRenderer(onError: onError) }
+    func makeCoordinator() -> SynthRenderer { SynthRenderer(ndi:ndi,onError: onError) }
     func makeUIView(context: Context) -> MTKView { context.coordinator.makeView() }
     func updateUIView(_ view: MTKView, context: Context) {
         context.coordinator.update(parameters, bands: bands, paused: paused, resetID: resetID)
@@ -58,8 +60,9 @@ final class SynthRenderer: NSObject, MTKViewDelegate {
     private var readIndex = 0
     private let onError: (String) -> Void
     private var reportedError = false
+    private let ndi: NdiOutput
 
-    init(onError: @escaping (String) -> Void) { self.onError = onError }
+    init(ndi:NdiOutput,onError: @escaping (String) -> Void) { self.ndi = ndi; self.onError = onError }
 
     func makeView() -> MTKView {
         let view = MTKView(frame: .zero, device: MTLCreateSystemDefaultDevice())
@@ -161,6 +164,9 @@ final class SynthRenderer: NSObject, MTKViewDelegate {
         encoder.setFragmentTexture(history[readIndex], index: 0)
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         encoder.endEncoding()
+        if let ticket = ndi.reserveFrame(time:now) {
+            encodeNdiCapture(command,device:device,display:display,width:width,height:height,ticket:ticket)
+        }
         command.addCompletedHandler { [weak self] buffer in
             if let error = buffer.error { DispatchQueue.main.async { self?.fail(error.localizedDescription) } }
         }
@@ -172,5 +178,35 @@ final class SynthRenderer: NSObject, MTKViewDelegate {
         guard !reportedError else { return }
         reportedError = true
         DispatchQueue.main.async { self.onError(message) }
+    }
+
+    private func encodeNdiCapture(_ command: MTLCommandBuffer, device: MTLDevice, display: MTLRenderPipelineState,
+                                  width: Int, height: Int, ticket: NdiFrameTicket) {
+        let stride = (width*4+255) & ~255
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm,width:width,height:height,mipmapped:false)
+        descriptor.usage = [.renderTarget]
+        descriptor.storageMode = .private
+        guard let texture = device.makeTexture(descriptor:descriptor),
+              let buffer = device.makeBuffer(length:stride*height,options:.storageModeShared) else {
+            ndi.cancel(ticket,message:"Could not allocate the NDI readback buffer."); return
+        }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = texture
+        pass.colorAttachments[0].loadAction = .dontCare
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor:pass) else { ndi.cancel(ticket,message:"Could not render NDI output."); return }
+        encoder.setRenderPipelineState(display)
+        encoder.setFragmentTexture(history[readIndex],index:0)
+        encoder.drawPrimitives(type:.triangle,vertexStart:0,vertexCount:3)
+        encoder.endEncoding()
+        guard let blit = command.makeBlitCommandEncoder() else { ndi.cancel(ticket,message:"Could not read NDI output."); return }
+        blit.copy(from:texture,sourceSlice:0,sourceLevel:0,sourceOrigin:MTLOrigin(x:0,y:0,z:0),
+                  sourceSize:MTLSize(width:width,height:height,depth:1),to:buffer,destinationOffset:0,
+                  destinationBytesPerRow:stride,destinationBytesPerImage:stride*height)
+        blit.endEncoding()
+        command.addCompletedHandler { [ndi] completed in
+            if let error = completed.error { ndi.cancel(ticket,message:error.localizedDescription) }
+            else { ndi.submit(buffer,width:width,height:height,stride:stride,ticket:ticket) }
+        }
     }
 }

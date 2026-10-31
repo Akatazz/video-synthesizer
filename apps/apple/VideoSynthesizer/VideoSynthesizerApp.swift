@@ -31,6 +31,7 @@ struct PresetDocument: FileDocument {
 struct SynthView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var audio = MicrophoneInput()
+    @StateObject private var ndi = NdiOutput()
     @State private var parameters = SynthParameters()
     @State private var paused = false
     @State private var resetID = 0
@@ -72,7 +73,7 @@ struct SynthView: View {
         .background(Color(red: 0.06, green: 0.08, blue: 0.10))
         .preferredColorScheme(.dark)
         .onChange(of: scenePhase) { phase in audio.updateScene(active: phase == .active, background: phase == .background) }
-        .onDisappear { audio.stop() }
+        .onDisappear { audio.stop(); ndi.stop() }
         #if os(macOS)
         .frame(minWidth: 860, minHeight: 580)
         #endif
@@ -95,7 +96,7 @@ struct SynthView: View {
     }
 
     private var surface: some View {
-        MetalSurface(parameters: parameters, bands: audio.levels, paused: paused, resetID: resetID) { errorMessage = $0 }
+        MetalSurface(parameters: parameters, bands: audio.levels, ndi: ndi, paused: paused, resetID: resetID) { errorMessage = $0 }
             .aspectRatio(16.0 / 9.0, contentMode: .fit)
             .background(.black).clipShape(RoundedRectangle(cornerRadius: 8))
             .accessibilityLabel("Live synthesis preview")
@@ -116,6 +117,9 @@ struct SynthView: View {
                 control("Mid → oscillator", \.audioToOsc, 0...1)
                 control("Bass → fractal", \.audioToFractal, 0...1)
                 control("High → cell feed", \.audioToCA, 0...1)
+                #if os(macOS)
+                NdiControls(output:ndi)
+                #endif
             }.padding(.trailing, 8)
         }
     }

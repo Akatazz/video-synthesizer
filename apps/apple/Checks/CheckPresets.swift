@@ -45,6 +45,27 @@ struct CheckPresets {
         for _ in 0..<1024 { dcLevels = dc.push(.nan, sampleRate: 48000) }
         precondition(dcLevels == AudioBands(), "Non-finite input must not modulate synthesis")
         print("Swift native FFT checks passed.")
+        let image: [UInt8] = [0,0,255,255,0,255,0,255,255,0,0,255,10,10,10,255]
+        var lighting = NdiSettings()
+        lighting.width = 2; lighting.height = 2; lighting.cutoff = 0
+        let identity = try LightingOutput.process(image,width:2,height:2,stride:8,settings:lighting)
+        precondition(identity == image,"Lighting identity changed BGRA channels or orientation")
+        lighting.cutoff = 0.05
+        let cutoff = try LightingOutput.process(image,width:2,height:2,stride:8,settings:lighting)
+        precondition(Array(cutoff[12..<16]) == [0,0,0,255],"Black cutoff failed")
+        lighting.cutoff = 0; lighting.channel = 2; lighting.alpha = 1
+        let red = try LightingOutput.process(image,width:2,height:2,stride:8,settings:lighting)
+        precondition(Array(red[0..<4]) == [255,255,255,255] && Array(red[4..<8]) == [0,0,0,0],"Red routing or alpha failed")
+        lighting.alpha = 2
+        let inverted = try LightingOutput.process(image,width:2,height:2,stride:8,settings:lighting)
+        precondition(inverted[3] == 0 && inverted[7] == 255,"Inverted alpha failed")
+        if CommandLine.arguments.count > 2 {
+            var error = [CChar](repeating:0,count:512)
+            let success = CommandLine.arguments[2].withCString { vs_ndi_test_roundtrip($0,&error,error.count) }
+            precondition(success == 1,String(cString:error))
+            print("Real macOS NDI sender/receiver round trip passed.")
+        }
+        print("Swift lighting checks passed.")
     }
 
     static func expectRejection(_ data: Data) {
