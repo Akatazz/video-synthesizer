@@ -1,6 +1,6 @@
 # Linux native application
 
-C++20 / GTK 4 / Cairo, built independently with CMake. On Ubuntu or Debian:
+C++20 / GTK 4.10+ / Cairo, built independently with CMake. On a recent Ubuntu or Debian:
 
 ```sh
 sudo apt-get install build-essential cmake pkg-config libgtk-4-dev nlohmann-json3-dev

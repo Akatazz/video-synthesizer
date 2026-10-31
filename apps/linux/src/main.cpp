@@ -18,14 +18,24 @@ static void showError(State* state, const std::string& error) {
     gtk_label_set_text(GTK_LABEL(state->status), error.c_str());
 }
 
-static void fileResponse(GtkNativeDialog* dialog, int response, gpointer window) {
-    auto* state = static_cast<State*>(g_object_get_data(G_OBJECT(window), "synth-state"));
-    if (response == GTK_RESPONSE_ACCEPT) {
-        GFile* file = gtk_file_chooser_get_file(GTK_FILE_CHOOSER(dialog));
+struct FileRequest {
+    GtkWindow* window;
+    bool saving;
+    ~FileRequest() { g_object_unref(window); }
+};
+
+static void fileResponse(GObject* source, GAsyncResult* result, gpointer data) {
+    std::unique_ptr<FileRequest> request(static_cast<FileRequest*>(data));
+    auto* state = static_cast<State*>(g_object_get_data(G_OBJECT(request->window), "synth-state"));
+    GError* error = nullptr;
+    auto* dialog = GTK_FILE_DIALOG(source);
+    GFile* file = request->saving ? gtk_file_dialog_save_finish(dialog, result, &error)
+                                  : gtk_file_dialog_open_finish(dialog, result, &error);
+    if (file) {
         char* path = file ? g_file_get_path(file) : nullptr;
         try {
             if (!path) throw std::runtime_error("Choose a local preset file.");
-            bool saving = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(dialog), "saving"));
+            bool saving = request->saving;
             if (saving) {
                 std::ofstream output(path);
                 output << savePreset(state->parameters).dump(2) << '\n';
@@ -42,24 +52,32 @@ static void fileResponse(GtkNativeDialog* dialog, int response, gpointer window)
             gtk_label_set_text(GTK_LABEL(state->status), saving ? "Preset saved" : "Preset loaded");
         } catch (const std::exception& error) { showError(state, error.what()); }
         g_free(path);
-        if (file) g_object_unref(file);
+        g_object_unref(file);
     }
-    gtk_native_dialog_destroy(dialog);
-    g_object_unref(dialog);
+    if (error) {
+        if (!g_error_matches(error, GTK_DIALOG_ERROR, GTK_DIALOG_ERROR_DISMISSED) &&
+            !g_error_matches(error, GTK_DIALOG_ERROR, GTK_DIALOG_ERROR_CANCELLED))
+            showError(state, error->message);
+        g_error_free(error);
+    }
 }
 
 static void chooseFile(State* state, bool saving) {
-    auto* dialog = gtk_file_chooser_native_new(saving ? "Save preset" : "Open preset", GTK_WINDOW(state->window),
-        saving ? GTK_FILE_CHOOSER_ACTION_SAVE : GTK_FILE_CHOOSER_ACTION_OPEN, saving ? "Save" : "Open", "Cancel");
+    auto* dialog = gtk_file_dialog_new();
+    gtk_file_dialog_set_title(dialog, saving ? "Save preset" : "Open preset");
     auto* filter = gtk_file_filter_new();
     gtk_file_filter_set_name(filter, "Synth presets (*.json)");
     gtk_file_filter_add_pattern(filter, "*.json");
-    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+    auto* filters = g_list_store_new(GTK_TYPE_FILE_FILTER);
+    g_list_store_append(filters, filter);
+    gtk_file_dialog_set_filters(dialog, G_LIST_MODEL(filters));
+    g_object_unref(filters);
     g_object_unref(filter);
-    if (saving) gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), "synth-preset.json");
-    g_object_set_data(G_OBJECT(dialog), "saving", GINT_TO_POINTER(saving));
-    g_signal_connect_object(dialog, "response", G_CALLBACK(fileResponse), state->window, G_CONNECT_DEFAULT);
-    gtk_native_dialog_show(GTK_NATIVE_DIALOG(dialog));
+    if (saving) gtk_file_dialog_set_initial_name(dialog, "synth-preset.json");
+    auto* request = new FileRequest {GTK_WINDOW(g_object_ref(state->window)), saving};
+    if (saving) gtk_file_dialog_save(dialog, request->window, nullptr, fileResponse, request);
+    else gtk_file_dialog_open(dialog, request->window, nullptr, fileResponse, request);
+    g_object_unref(dialog);
 }
 
 static void draw(GtkDrawingArea*, cairo_t* context, int width, int height, gpointer data) {
