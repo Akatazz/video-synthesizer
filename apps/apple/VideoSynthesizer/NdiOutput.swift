@@ -70,11 +70,15 @@ final class NdiOutput: ObservableObject {
     private var running = false, busy = false
     private var generation = 0
     private var nextCapture: Double = 0
+    private(set) var framesSent = 0
+    private(set) var lastFrameChecksum: UInt64 = 0
 
     deinit { if let sender { vs_ndi_close(sender) } }
 
     func start() {
         stop()
+        framesSent = 0
+        lastFrameChecksum = 0
         do {
             _ = try settings.validated()
             guard !sourceName.contains("\0") else { throw SynthParameters.PresetError.invalid("Invalid NDI source name.") }
@@ -128,6 +132,16 @@ final class NdiOutput: ObservableObject {
             }
             do {
                 let source = Array(UnsafeBufferPointer(start:buffer.contents().assumingMemoryBound(to:UInt8.self),count:stride*height))
+                // A bounded sample checksum supports readback diagnostics without
+                // retaining frame history or exposing pixel data in the UI.
+                var checksum: UInt64 = 14695981039346656037
+                let samples = min(1024,width*height)
+                for sample in 0..<samples {
+                    let pixel = sample*(width*height-1)/max(1,samples-1)
+                    let offset = (pixel/width)*stride+(pixel%width)*4
+                    for channel in 0..<3 { checksum = (checksum ^ UInt64(source[offset+channel])) &* 1099511628211 }
+                }
+                let fingerprint = checksum
                 let pixels = try LightingOutput.process(source,width:width,height:height,stride:stride,settings:ticket.settings)
                 var receivers: Int32 = 0, program: Int32 = 0, preview: Int32 = 0
                 pixels.withUnsafeBufferPointer { bytes in
@@ -135,7 +149,11 @@ final class NdiOutput: ObservableObject {
                                 Int32(ticket.settings.fps),&receivers,&program,&preview)
                 }
                 let text = "NDI sending · \(ticket.settings.width) × \(ticket.settings.height) · \(receivers) receiver(s) · \(program != 0 ? "PROGRAM" : preview != 0 ? "PREVIEW" : "No tally")"
-                DispatchQueue.main.async { [weak self] in if let self, self.isCurrent(ticket) { self.status = text } }
+                DispatchQueue.main.async { [weak self] in
+                    if let self, self.isCurrent(ticket) {
+                        self.framesSent += 1; self.lastFrameChecksum = fingerprint; self.status = text
+                    }
+                }
             } catch { self.cancel(ticket,message:error.localizedDescription) }
         }
     }
