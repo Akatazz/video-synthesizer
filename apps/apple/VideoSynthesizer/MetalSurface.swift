@@ -2,14 +2,32 @@ import MetalKit
 import SwiftUI
 
 #if os(macOS)
+private final class NativeMetalView: MTKView {
+    var onWindowClose: (() -> Void)?
+    private var closeObserver: NSObjectProtocol?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) }
+        closeObserver = nil
+        if let window {
+            closeObserver = NotificationCenter.default.addObserver(
+                forName:NSWindow.willCloseNotification,object:window,queue:.main
+            ) { [weak self] _ in self?.onWindowClose?() }
+        }
+    }
+    deinit { if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) } }
+}
+
 struct MetalSurface: NSViewRepresentable {
     var parameters: SynthParameters
     var bands: AudioBands
     var ndi: NdiOutput
     var paused: Bool
     var resetID: Int
+    var onStop: () -> Void
     var onError: (String) -> Void
-    func makeCoordinator() -> SynthRenderer { SynthRenderer(ndi:ndi,onError: onError) }
+    func makeCoordinator() -> SynthRenderer { SynthRenderer(ndi:ndi,onStop:onStop,onError: onError) }
     func makeNSView(context: Context) -> MTKView { context.coordinator.makeView() }
     func updateNSView(_ view: MTKView, context: Context) {
         context.coordinator.update(parameters, bands: bands, paused: paused, resetID: resetID)
@@ -27,8 +45,9 @@ struct MetalSurface: UIViewRepresentable {
     var ndi: NdiOutput
     var paused: Bool
     var resetID: Int
+    var onStop: () -> Void
     var onError: (String) -> Void
-    func makeCoordinator() -> SynthRenderer { SynthRenderer(ndi:ndi,onError: onError) }
+    func makeCoordinator() -> SynthRenderer { SynthRenderer(ndi:ndi,onStop:onStop,onError: onError) }
     func makeUIView(context: Context) -> MTKView { context.coordinator.makeView() }
     func updateUIView(_ view: MTKView, context: Context) {
         context.coordinator.update(parameters, bands: bands, paused: paused, resetID: resetID)
@@ -69,22 +88,30 @@ final class SynthRenderer: NSObject, MTKViewDelegate {
     private var stopped = false
     private let requestGate = NSLock()
     private var mainDrawPending = false
+    private let onStop: () -> Void
 
-    init(ndi:NdiOutput,libraryURL:URL? = nil,onError: @escaping (String) -> Void) {
-        self.ndi = ndi; self.libraryURL = libraryURL; self.onError = onError
+    init(ndi:NdiOutput,libraryURL:URL? = nil,onStop:@escaping () -> Void = {},onError: @escaping (String) -> Void) {
+        self.ndi = ndi; self.libraryURL = libraryURL; self.onStop = onStop; self.onError = onError
     }
     deinit { backgroundTimer?.cancel() }
 
     func stop() {
+        guard !stopped else { return }
         stopped = true
         backgroundTimer?.setEventHandler {}
         backgroundTimer?.cancel()
         backgroundTimer = nil
         ndi.stop()
+        onStop()
     }
 
     func makeView() -> MTKView {
+        #if os(macOS)
+        let view = NativeMetalView(frame:.zero,device:MTLCreateSystemDefaultDevice())
+        view.onWindowClose = { [weak self] in self?.stop() }
+        #else
         let view = MTKView(frame: .zero, device: MTLCreateSystemDefaultDevice())
+        #endif
         view.colorPixelFormat = .bgra8Unorm
         view.preferredFramesPerSecond = 60
         view.delegate = self

@@ -50,7 +50,7 @@ are required. Never commit access tokens.
 - [x] Implement desktop capture retention and window-independent rendering/output.
 - [ ] Verify final background rendering, pause, minimize/restore and teardown CI checks.
 - [ ] Obtain mobile NDI SDK libraries and implement iOS/Android NDI integration
-      (user confirmed the mobile SDK is not installed locally).
+      (mobile SDK libraries are not available in this checkout or local toolchain).
 - [ ] Camera/video input, patch graph, remaining synthesis modules, and parity checks.
 - [ ] GPU renderer for Windows; full-resolution output and performance measurements.
 - [ ] Platform installers, icons, signing, and release packaging.

@@ -73,7 +73,11 @@ struct SynthView: View {
         .background(Color(red: 0.06, green: 0.08, blue: 0.10))
         .preferredColorScheme(.dark)
         .onChange(of: scenePhase) { phase in audio.updateScene(active: phase == .active, background: phase == .background) }
-        .onDisappear { audio.stop(); ndi.stop() }
+        .onDisappear {
+            #if !os(macOS)
+            audio.stop(); ndi.stop()
+            #endif
+        }
         #if os(macOS)
         .frame(minWidth: 860, minHeight: 580)
         #endif
@@ -96,7 +100,8 @@ struct SynthView: View {
     }
 
     private var surface: some View {
-        MetalSurface(parameters: parameters, bands: audio.levels, ndi: ndi, paused: paused, resetID: resetID) { errorMessage = $0 }
+        MetalSurface(parameters: parameters, bands: audio.levels, ndi: ndi, paused: paused, resetID: resetID,
+                     onStop:{ audio.stop() }) { errorMessage = $0 }
             .aspectRatio(16.0 / 9.0, contentMode: .fit)
             .background(.black).clipShape(RoundedRectangle(cornerRadius: 8))
             .accessibilityLabel("Live synthesis preview")
