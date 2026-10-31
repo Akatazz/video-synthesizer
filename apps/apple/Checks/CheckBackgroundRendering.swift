@@ -37,6 +37,10 @@ struct CheckBackgroundRendering {
             require(renderError == nil,renderError ?? "")
             require(output.framesSent >= 4,"Background Metal output did not send frames: \(output.status)")
             require(fingerprints.count >= 2,"GPU readback did not contain changing synthesis pixels.")
+            renderer.mtkView(view,drawableSizeWillChange:CGSize(width:CGFloat.infinity,height:36))
+            renderer.mtkView(view,drawableSizeWillChange:CGSize(width:64,height:CGFloat.nan))
+            renderer.mtkView(view,drawableSizeWillChange:.zero)
+            waitForFrames(output,additional:2,context:"invalid/zero drawable-size transitions")
             renderer.update(SynthParameters(),bands:AudioBands(),paused:true,resetID:0)
             // Drain an already queued live frame before checking held output.
             let drain = output.framesSent+2
@@ -56,6 +60,7 @@ struct CheckBackgroundRendering {
             let window = NSWindow(contentRect:NSRect(x:20,y:20,width:320,height:180),
                                   styleMask:[.titled,.miniaturizable],backing:.buffered,defer:false)
             window.isReleasedWhenClosed = false
+            view.frame = NSRect(x:0,y:0,width:320,height:180)
             window.contentView = view
             defer { window.close() }
             report("Checking visible window output.")

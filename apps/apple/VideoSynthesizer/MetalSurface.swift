@@ -161,12 +161,19 @@ final class SynthRenderer: NSObject, MTKViewDelegate {
         // Keep the last nonzero output size while a window is hidden/minimized.
         // Texture resizing below clears history only when the dimensions change.
         if Thread.isMainThread {
-            if size.width > 0 && size.height > 0 { renderSize = size }
+            rememberRenderSize(size)
         } else {
             DispatchQueue.main.async { [weak self] in
-                if size.width > 0 && size.height > 0 { self?.renderSize = size }
+                self?.rememberRenderSize(size)
             }
         }
+    }
+
+    private func rememberRenderSize(_ size: CGSize) {
+        // Window/screen transitions can report non-finite sizes. Preserve the
+        // valid output dimensions before converting them to texture integers.
+        guard size.width.isFinite, size.height.isFinite, size.width > 0, size.height > 0 else { return }
+        renderSize = size
     }
 
     func draw(in view: MTKView) {
@@ -207,7 +214,7 @@ final class SynthRenderer: NSObject, MTKViewDelegate {
         guard let command = queue.makeCommandBuffer() else { fail("Could not create a Metal command buffer."); return }
         let delta = Float(min(now - previousTime, 0.1))
         previousTime = now
-        if view.drawableSize.width > 0 && view.drawableSize.height > 0 { renderSize = view.drawableSize }
+        rememberRenderSize(view.drawableSize)
 
         // Cap the internal preview to 1280x720 while keeping the drawable's aspect ratio.
         let scale = min(1, min(1280 / renderSize.width, 720 / renderSize.height))
