@@ -94,6 +94,22 @@ jobs:
         with:
           name: video-synthesizer-macos-unsigned
           path: artifacts/VideoSynthesizerMac.zip
+      - name: Archive the iOS Simulator app and verify bundle contents
+        run: |
+          app=artifacts/apple/Build/Products/Debug-iphonesimulator/VideoSynthesizerIOS.app
+          ditto -c -k --keepParent "$app" artifacts/VideoSynthesizerIOS.zip
+          destination=$(mktemp -d)
+          ditto -x -k artifacts/VideoSynthesizerIOS.zip "$destination"
+          bundle="$destination/VideoSynthesizerIOS.app"
+          test "$(plutil -extract CFBundleIdentifier raw "$bundle/Info.plist")" = com.akatazz.videosynthesizer.ios
+          test "$(plutil -extract DTPlatformName raw "$bundle/Info.plist")" = iphonesimulator
+          test -x "$bundle/VideoSynthesizerIOS"
+          test -s "$bundle/default.metallib"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: video-synthesizer-ios-simulator
+          path: artifacts/VideoSynthesizerIOS.zip
+          if-no-files-found: error
   linux:
     runs-on: ubuntu-24.04
     steps:

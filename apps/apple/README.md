@@ -20,6 +20,16 @@ For physical iOS devices or distribution, select your development team under
 Signing & Capabilities. Release signing and App Store packaging are not yet set
 up. CI builds unsigned applications and compiles both Metal shader libraries.
 
+To try the prebuilt app in Xcode Simulator, download the
+`video-synthesizer-ios-simulator` artifact from GitHub Actions. Extract the
+artifact and its inner ZIP on a Mac. With an iPhone or iPad simulator booted,
+run these commands in the directory containing the app bundle:
+
+```sh
+xcrun simctl install booted VideoSynthesizerIOS.app
+xcrun simctl launch booted com.akatazz.videosynthesizer.ios
+```
+
 Implemented: oscillator warping, Julia seed, recursive feedback convolution,
 color controls, pause/reset, and validated preset import/export through native
 file pickers. Preview resolution follows the view, capped at 1280×720. GPU
