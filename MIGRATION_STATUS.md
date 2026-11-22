@@ -53,7 +53,9 @@ are required. Never commit access tokens.
 - [ ] Obtain mobile NDI SDK libraries and implement iOS/Android NDI integration
       (mobile SDK libraries are not available in this checkout or local toolchain).
 - [ ] Camera/video input, patch graph, remaining synthesis modules, and parity checks.
-- [ ] GPU renderer for Windows; full-resolution output and performance measurements.
+- [x] Windows Direct3D 11 synthesis with selectable resolution up to 1920×1080,
+      CPU fallback, and WPF pause/resize/backend switching checks.
+- [ ] Measure sustained full-resolution synthesis and NDI throughput on target hardware.
 - [ ] Platform installers, icons, signing, and release packaging.
 
 Apple targets share Swift/Metal source because both use Apple's frameworks, but

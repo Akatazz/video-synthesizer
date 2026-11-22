@@ -68,10 +68,10 @@ The lighting pass performs these operations in order:
 
 `lighting-fixtures.json` checks gamma, luma, alpha, blackout and bilinear resize
 against the same expected pixels in C#, Swift and C++. A one-byte tolerance
-allows different midpoint-rounding rules. CPU previews on Windows/Linux are
-480×270; macOS readback follows the preview and is capped at 1280×720. Larger NDI
-sizes upscale that source. Full-resolution synthesis and production throughput
-are separate remaining requirements.
+allows different midpoint-rounding rules. Windows lets you match the synthesis
+size to NDI output up to 1920×1080. Linux renders at 480×270. macOS readback
+follows the preview and is capped at 1280×720. Larger NDI sizes upscale the
+source. Sustained output throughput still needs measurement.
 
 ## Verification
 

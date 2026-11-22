@@ -24,10 +24,12 @@ continues when the window loses focus or is minimized, and stops when disabled o
 the window closes. Input permission/device failures are
 shown below the preview. See the [audio contract](../../contracts/AUDIO.md).
 
-The CPU renderer uses a fixed
-480×270 internal preview, scaled to the window. It is an initial implementation;
-Direct3D rendering, full-resolution output,
-installers, and signing remain on the roadmap.
+The Windows app starts at 1280×720 and uses Direct3D 11 when available.
+Choose **Synthesis resolution** to render directly at a matrix size or up to
+1920×1080. PNG snapshots use that resolution. NDI has a separate output size.
+Changing the renderer or resolution clears feedback. **CPU compatibility**
+uses the same controls and is also the fallback if the GPU is unavailable.
+A smaller synthesis resolution reduces CPU load.
 
 Native NDI output is available in the scrollable rack: select an installed NDI
 runtime, set the source name, resolution and frame rate, then start output.

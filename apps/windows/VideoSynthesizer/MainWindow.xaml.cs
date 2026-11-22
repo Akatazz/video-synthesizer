@@ -13,8 +13,18 @@ namespace VideoSynthesizer;
 public partial class MainWindow : Window
 {
     private SynthParameters parameters = new();
-    private readonly SynthEngine engine = new(480, 270);
-    private readonly WriteableBitmap bitmap;
+    private ISynthRenderer engine = new SynthEngine(480, 270);
+    private WriteableBitmap bitmap;
+    private enum RendererMode { Automatic, Cpu, Warp }
+    private RendererMode rendererMode;
+    private int renderWidth = 1280, renderHeight = 720;
+    private (RendererMode Mode, int Width, int Height)? pendingRenderer;
+    private string rendererNote = "";
+    private static readonly (string Label, int Width, int Height)[] renderSizes = [
+        ("Preview 480 × 270",480,270), ("Matrix 128 × 128",128,128),
+        ("Matrix 256 × 256",256,256), ("Matrix 512 × 512",512,512),
+        ("Linear 512 × 64",512,64), ("Wide 1024 × 128",1024,128),
+        ("HD 1280 × 720",1280,720), ("Full HD 1920 × 1080",1920,1080) ];
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1.0 / 30) };
     private readonly Stopwatch clock = Stopwatch.StartNew();
     private bool paused, rendering, resetPending, closed;
@@ -26,15 +36,21 @@ public partial class MainWindow : Window
     private string ndiName = "LZX-V Synth Output (Windows)";
     private string? ndiRuntimePath;
     private Button? ndiButton;
-    private readonly bool backgroundCheck = Environment.GetCommandLineArgs().Contains("--background-smoke-test");
+    private readonly bool graphicsCheck = Environment.GetCommandLineArgs().Contains("--graphics-lifecycle-smoke-test");
+    private readonly bool backgroundCheck = Environment.GetCommandLineArgs().Any(arg=>arg is "--background-smoke-test" or "--graphics-lifecycle-smoke-test");
     private byte[]? firstCheckFrame;
-    private int checkFrames;
+    private int checkFrames, graphicsStage, heldTicks;
+    private byte[]? heldCheckFrame;
 
     public MainWindow()
     {
         InitializeComponent();
         bitmap = new WriteableBitmap(engine.Width, engine.Height, 96, 96, PixelFormats.Bgra32, null);
         Preview.Source = bitmap;
+        rendererMode = Environment.GetEnvironmentVariable("VIDEO_SYNTH_RENDERER") switch {
+            "cpu" => RendererMode.Cpu, "warp" => RendererMode.Warp, _ => RendererMode.Automatic
+        };
+        QueueRenderer();
         BuildControls();
         timer.Tick += RenderFrame;
         Loaded += (_, _) =>
@@ -44,7 +60,7 @@ public partial class MainWindow : Window
                 Hide();
                 string[] args = Environment.GetCommandLineArgs();
                 int flag = Array.IndexOf(args,"--background-smoke-test");
-                if (flag + 1 < args.Length)
+                if (flag >= 0 && flag + 1 < args.Length)
                 {
                     try
                     {
@@ -56,12 +72,17 @@ public partial class MainWindow : Window
             }
             timer.Start();
         };
-        Closed += (_, _) => { closed = true; timer.Stop(); microphone.Dispose(); ndi.Dispose(); };
+        Closed += (_, _) => {
+            closed = true; timer.Stop(); microphone.Dispose(); ndi.Dispose();
+            // A queued compute/readback owns the device until its await completes.
+            if (!rendering) engine.Dispose();
+        };
     }
 
     private void BuildControls()
     {
         Controls.Children.Clear();
+        BuildRendererControls();
         AddSlider("Oscillator frequency", 0, 30, parameters.OscFreq, v => parameters = parameters with { OscFreq = v });
         AddSlider("Oscillator speed", 0, 5, parameters.OscSpeed, v => parameters = parameters with { OscSpeed = v });
         AddSlider("Fractal zoom", 0.1, 4, parameters.FractalZoom, v => parameters = parameters with { FractalZoom = v });
@@ -75,6 +96,33 @@ public partial class MainWindow : Window
         AddSlider("Bass → fractal", 0, 1, parameters.AudioToFractal, v => parameters = parameters with { AudioToFractal = v });
         AddSlider("High → cell feed", 0, 1, parameters.AudioToCA, v => parameters = parameters with { AudioToCA = v });
         BuildNdiControls();
+    }
+
+    private void BuildRendererControls()
+    {
+        Controls.Children.Add(new TextBlock { Text="SYNTHESIS",FontSize=18,Margin=new Thickness(0,0,0,8) });
+        AddChoice("Rendering",["Automatic GPU","CPU compatibility"],rendererMode==RendererMode.Cpu ? 1 : 0,index => {
+            rendererMode = index==0 ? RendererMode.Automatic : RendererMode.Cpu;
+            rendererNote = ""; QueueRenderer();
+        });
+        AddChoice("Synthesis resolution",renderSizes.Select(size=>size.Label).ToArray(),
+            Array.FindIndex(renderSizes,size=>size.Width==renderWidth && size.Height==renderHeight),index=> {
+                renderWidth=renderSizes[index].Width; renderHeight=renderSizes[index].Height;
+                QueueRenderer();
+            });
+        Controls.Children.Add(new TextBlock { Text="Changing rendering or resolution resets feedback. NDI resizes this synthesis image to its output size.",
+            TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,12) });
+    }
+
+    private void QueueRenderer() => pendingRenderer=(rendererMode,renderWidth,renderHeight);
+
+    private static (ISynthRenderer Renderer, string Note) CreateRenderer(RendererMode mode, int width, int height)
+    {
+        if (mode==RendererMode.Cpu) return (new SynthEngine(width,height),"");
+        try { return (new Direct3DSynthRenderer(width,height,software:mode==RendererMode.Warp),""); }
+        catch (Exception error) when (mode==RendererMode.Automatic) {
+            return (new SynthEngine(width,height),$"GPU unavailable; using CPU. {error.Message}");
+        }
     }
 
     private void BuildNdiControls()
@@ -152,35 +200,54 @@ public partial class MainWindow : Window
         AudioStatus.Text = microphone.Error ?? (microphone.IsRunning
             ? $"Microphone live · Bass {bands.Bass:0.00} · Mid {bands.Mid:0.00} · High {bands.High:0.00}" : "Microphone off");
         if (!microphone.IsRunning) MicrophoneButton.Content = "Enable microphone";
-        double now = clock.Elapsed.TotalSeconds;
-        double delta = Math.Min(now - previousTime, 0.1);
-        previousTime = now;
-        if (paused && !resetPending) { SubmitNdi(); return; }
         rendering = true;
-        if (resetPending) { engine.Reset(); synthTime = 0; resetPending = false; }
-        else synthTime += (float)delta;
-        var snapshot = parameters;
-        float time = synthTime;
-        var frameClock = Stopwatch.StartNew();
         try
         {
+            if (pendingRenderer is { } request) {
+                pendingRenderer = null;
+                var created = await Task.Run(()=>CreateRenderer(request.Mode,request.Width,request.Height));
+                if (closed) { created.Renderer.Dispose(); return; }
+                engine.Dispose(); engine=created.Renderer;
+                if (request.Mode!=RendererMode.Cpu || rendererMode==RendererMode.Cpu) rendererNote=created.Note;
+                bitmap = new WriteableBitmap(engine.Width,engine.Height,96,96,PixelFormats.Bgra32,null);
+                Preview.Source=bitmap;
+                resetPending=true;
+                firstCheckFrame=null; checkFrames=0;
+            }
+            double now = clock.Elapsed.TotalSeconds;
+            double delta = Math.Min(now-previousTime,0.1);
+            previousTime = now;
+            if (paused && !resetPending) {
+                SubmitNdi();
+                if (graphicsCheck) VerifyGraphicsLifecycle(rendered:false);
+                return;
+            }
+            if (resetPending) { engine.Reset(); synthTime=0; resetPending=false; }
+            else synthTime += (float)delta;
+            var snapshot=parameters;
+            float time=synthTime;
+            var frameClock=Stopwatch.StartNew();
             await Task.Run(() => engine.Render(time, snapshot, bands));
             if (closed) return;
             bitmap.WritePixels(new Int32Rect(0, 0, engine.Width, engine.Height), engine.Pixels, engine.Width * 4, 0);
             SubmitNdi();
             if (backgroundCheck) VerifyBackgroundFrame();
-            Status.Text = $"Windows preview · {engine.Width} × {engine.Height} · {frameClock.Elapsed.TotalMilliseconds:0} ms/frame · { (paused ? "Paused" : "Live") }";
+            Status.Text = $"{engine.Backend} · {engine.Width} × {engine.Height} · {frameClock.Elapsed.TotalMilliseconds:0.0} ms/frame · {(paused ? "Paused" : "Live")} {rendererNote}";
         }
         catch (Exception error)
         {
-            timer.Stop();
-            if (backgroundCheck) FailBackgroundCheck(error.Message); else ShowError(error);
+            if (backgroundCheck) FailBackgroundCheck(error.Message);
+            else if (engine is Direct3DSynthRenderer && rendererMode==RendererMode.Automatic) {
+                rendererNote=$"GPU stopped; using CPU. {error.Message}";
+                pendingRenderer=(RendererMode.Cpu,renderWidth,renderHeight);
+            } else { timer.Stop(); ShowError(error); }
         }
-        finally { rendering = false; }
+        finally { rendering=false; if (closed) engine.Dispose(); }
     }
 
     private void VerifyBackgroundFrame()
     {
+        if (graphicsCheck) { VerifyGraphicsLifecycle(rendered:true); return; }
         firstCheckFrame ??= engine.Pixels.ToArray();
         checkFrames++;
         bool expectsNdi = Environment.GetCommandLineArgs().Length > Array.IndexOf(Environment.GetCommandLineArgs(),"--background-smoke-test") + 1;
@@ -194,6 +261,43 @@ public partial class MainWindow : Window
         }
         Console.WriteLine($"Hidden WPF synthesis advanced across {checkFrames} frames. {ndi.Status}");
         Application.Current.Shutdown(0);
+    }
+
+    private void VerifyGraphicsLifecycle(bool rendered)
+    {
+        if (IsVisible) throw new InvalidOperationException("Graphics test window became visible.");
+        if (graphicsStage is 1 or 3) {
+            if (rendered || heldCheckFrame == null || !heldCheckFrame.SequenceEqual(engine.Pixels))
+                throw new InvalidOperationException("Paused synthesis did not hold its frame.");
+            if (++heldTicks<3) return;
+            if (graphicsStage==1) {
+                pendingRenderer=(rendererMode,1920,1080);
+                graphicsStage=2;
+            } else {
+                pendingRenderer=(RendererMode.Cpu,480,270);
+                paused=false; graphicsStage=4;
+            }
+            return;
+        }
+        if (graphicsStage==2) {
+            if (!paused || engine is not Direct3DSynthRenderer || engine.Width!=1920 || engine.Height!=1080 ||
+                !engine.Pixels.Where((_,index)=>index%4==3).All(value=>value==255))
+                throw new InvalidOperationException("Paused full-HD renderer replacement did not produce a complete frame.");
+            heldCheckFrame=engine.Pixels.ToArray(); heldTicks=0; graphicsStage=3;
+            return;
+        }
+        firstCheckFrame ??= engine.Pixels.ToArray();
+        if (++checkFrames<3) return;
+        if (firstCheckFrame.SequenceEqual(engine.Pixels)) throw new InvalidOperationException("Replacement renderer did not advance.");
+        if (graphicsStage==0) {
+            if (engine is not Direct3DSynthRenderer) throw new InvalidOperationException("The graphics test requires Direct3D; use VIDEO_SYNTH_RENDERER=warp on CI.");
+            paused=true; heldTicks=0; heldCheckFrame=engine.Pixels.ToArray(); graphicsStage=1;
+        } else {
+            if (engine is not SynthEngine || engine.Width!=480 || engine.Height!=270)
+                throw new InvalidOperationException("CPU compatibility renderer did not replace the GPU renderer.");
+            Console.WriteLine("Hidden WPF GPU pause, paused full-HD resize, resume and CPU renderer replacement passed.");
+            Application.Current.Shutdown(0);
+        }
     }
 
     private static void FailBackgroundCheck(string error)

@@ -1,8 +1,9 @@
 namespace VideoSynthesizer;
 
 /// <summary>Independent CPU renderer for the native Windows preview.</summary>
-public sealed class SynthEngine
+public sealed class SynthEngine : ISynthRenderer
 {
+    public string Backend => "CPU";
     public int Width { get; }
     public int Height { get; }
     private float[] history;
@@ -26,6 +27,8 @@ public sealed class SynthEngine
         Array.Clear(next);
         Array.Clear(Pixels);
     }
+
+    public void Dispose() { }
 
     private float Sample(float x, float y, int channel)
     {

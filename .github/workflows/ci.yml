@@ -31,7 +31,13 @@ jobs:
       - run: dotnet run --project apps/windows/VideoSynthesizer.Checks -c Release
       - run: dotnet build apps/windows/VideoSynthesizer -c Release
       - name: Verify hidden WPF synthesis
+        timeout-minutes: 2
         run: dotnet run --project apps/windows/VideoSynthesizer -c Release --no-build -- --background-smoke-test
+      - name: Verify Direct3D pause, full-HD resize and CPU replacement in WPF
+        timeout-minutes: 2
+        env:
+          VIDEO_SYNTH_RENDERER: warp
+        run: dotnet run --project apps/windows/VideoSynthesizer -c Release --no-build -- --graphics-lifecycle-smoke-test
       - name: Obtain existing project dependency's NDI runtime for interoperability checks
         shell: bash
         run: |
@@ -42,7 +48,10 @@ jobs:
         shell: pwsh
         run: dotnet run --project apps/windows/VideoSynthesizer.Checks -c Release -- contracts/presets/classic-feedback.json (Join-Path $PWD 'artifacts/ndi/package/Processing.NDI.Lib.x64.dll')
       - name: Verify hidden WPF NDI output
+        timeout-minutes: 2
         shell: pwsh
+        env:
+          VIDEO_SYNTH_RENDERER: warp
         run: dotnet run --project apps/windows/VideoSynthesizer -c Release --no-build -- --background-smoke-test (Join-Path $PWD 'artifacts/ndi/package/Processing.NDI.Lib.x64.dll')
       - run: dotnet publish apps/windows/VideoSynthesizer -c Release -r win-x64 --self-contained true -o artifacts/windows
       - uses: actions/upload-artifact@v4

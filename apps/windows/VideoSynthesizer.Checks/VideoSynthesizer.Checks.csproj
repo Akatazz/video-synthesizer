@@ -7,6 +7,11 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
+    <PackageReference Include="Vortice.D3DCompiler" Version="3.8.3" />
+    <Compile Include="../VideoSynthesizer/ISynthRenderer.cs" Link="ISynthRenderer.cs" />
+    <Compile Include="../VideoSynthesizer/Direct3DSynthRenderer.cs" Link="Direct3DSynthRenderer.cs" />
+    <EmbeddedResource Include="../VideoSynthesizer/Synthesis.hlsl" LogicalName="Synthesis.hlsl" />
     <Compile Include="../VideoSynthesizer/SynthParameters.cs" Link="SynthParameters.cs" />
     <Compile Include="../VideoSynthesizer/SynthEngine.cs" Link="SynthEngine.cs" />
     <Compile Include="../VideoSynthesizer/AudioAnalysis.cs" Link="AudioAnalysis.cs" />

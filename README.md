@@ -6,7 +6,7 @@ and independent native applications under development.
 [![CI](https://github.com/Akatazz/video-synthesizer/actions/workflows/ci.yml/badge.svg)](https://github.com/Akatazz/video-synthesizer/actions/workflows/ci.yml)
 [GitHub repository](https://github.com/Akatazz/video-synthesizer)
 
-- **Windows:** [C# / WPF application](apps/windows/README.md), with a CPU synthesis preview, presets, and PNG export.
+- **Windows:** [C# / WPF application](apps/windows/README.md) with Direct3D 11 synthesis up to 1920×1080, CPU fallback, presets, and PNG export.
 - **macOS:** [SwiftUI / Metal Xcode target](apps/apple/README.md), with native controls, GPU feedback, and presets.
 - **iOS / iPadOS:** [Separate SwiftUI / Metal app target](apps/apple/README.md).
 - **Linux:** [C++ / GTK application](apps/linux/README.md), with native controls and CPU feedback rendering.
