@@ -1,0 +1,6 @@
+node_modules
+dist
+apps
+package-lock.json
+migration_plan.md
+SYSTEM_SPEC.md

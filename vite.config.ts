@@ -4,7 +4,7 @@
  */
 
 import { defineConfig } from 'vite';
-import { NdiBridge } from './server/ndi-bridge';
+import { NdiBridge } from './server/ndi-bridge.ts';
 
 const ndiBridge = new NdiBridge();
 

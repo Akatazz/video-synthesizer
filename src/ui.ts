@@ -1,12 +1,7 @@
-import * as THREE from 'three';
-import { AudioEngine } from './audio';
 import {
   NdiEngine,
-  NdiParams,
-  NdiStatus,
   NDI_RESOLUTION_PRESETS,
   NDI_FPS_OPTIONS,
-  defaultNdiParams,
   type ChannelMode,
   type AlphaMode,
 } from './ndi-engine';
@@ -18,7 +13,14 @@ import {
  * receives the current value (0‑1). The caller can bind this to shader
  * uniforms or other parameters.
  */
-export function createKnob(label: string, min: number, max: number, step: number, init: number, onChange: (v: number) => void) {
+export function createKnob(
+  label: string,
+  min: number,
+  max: number,
+  step: number,
+  init: number,
+  onChange: (v: number) => void,
+) {
   const container = document.createElement('div');
   container.className = 'knob';
 
@@ -48,7 +50,12 @@ export function createKnob(label: string, min: number, max: number, step: number
 /**
  * Create a styled <select> dropdown.
  */
-function createSelect(label: string, options: string[], initIndex: number, onChange: (index: number, value: string) => void) {
+function createSelect(
+  label: string,
+  options: string[],
+  initIndex: number,
+  onChange: (index: number, value: string) => void,
+) {
   const container = document.createElement('div');
   container.className = 'ndi-select-group';
 
@@ -135,7 +142,13 @@ export function buildSynthRack(params: any, ndiEngine?: NdiEngine) {
   cvTitle.textContent = 'Audio CV Patching';
   cvSection.appendChild(cvTitle);
   bind('audioToOsc', { label: 'Mic→Osc', min: 0, max: 1, step: 0.01, init: params.audioToOsc });
-  bind('audioToFractal', { label: 'Mic→Fract', min: 0, max: 1, step: 0.01, init: params.audioToFractal });
+  bind('audioToFractal', {
+    label: 'Mic→Fract',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    init: params.audioToFractal,
+  });
   bind('audioToCA', { label: 'Mic→CA', min: 0, max: 1, step: 0.01, init: params.audioToCA });
   rack.appendChild(cvSection);
 
@@ -225,20 +238,22 @@ function buildNdiModule(rack: HTMLElement, engine: NdiEngine): void {
   section.appendChild(nameRow);
 
   // ---- Resolution selector ----
-  const resLabels = [
-    ...NDI_RESOLUTION_PRESETS.map(p => p.label),
-    'Custom…'
-  ];
-  const resSel = createSelect('Resolution', resLabels, engine.params.presetIndex >= 0 ? engine.params.presetIndex : resLabels.length - 1, (idx) => {
-    if (idx < NDI_RESOLUTION_PRESETS.length) {
-      engine.params.presetIndex = idx;
-      customResRow.style.display = 'none';
-    } else {
-      engine.params.presetIndex = -1;
-      customResRow.style.display = 'flex';
-    }
-    engine.pushConfig();
-  });
+  const resLabels = [...NDI_RESOLUTION_PRESETS.map((p) => p.label), 'Custom…'];
+  const resSel = createSelect(
+    'Resolution',
+    resLabels,
+    engine.params.presetIndex >= 0 ? engine.params.presetIndex : resLabels.length - 1,
+    (idx) => {
+      if (idx < NDI_RESOLUTION_PRESETS.length) {
+        engine.params.presetIndex = idx;
+        customResRow.style.display = 'none';
+      } else {
+        engine.params.presetIndex = -1;
+        customResRow.style.display = 'flex';
+      }
+      engine.pushConfig();
+    },
+  );
   section.appendChild(resSel.element);
 
   // Custom resolution row (hidden by default)
@@ -282,12 +297,12 @@ function buildNdiModule(rack: HTMLElement, engine: NdiEngine): void {
   // ---- FPS selector ----
   const fpsSel = createSelect(
     'Frame Rate',
-    NDI_FPS_OPTIONS.map(f => `${f} fps`),
+    NDI_FPS_OPTIONS.map((f) => `${f} fps`),
     NDI_FPS_OPTIONS.indexOf(engine.params.fps as any),
     (idx) => {
       engine.params.fps = NDI_FPS_OPTIONS[idx];
       engine.pushConfig();
-    }
+    },
   );
   section.appendChild(fpsSel.element);
 
@@ -315,7 +330,7 @@ function buildNdiModule(rack: HTMLElement, engine: NdiEngine): void {
     channelModes.indexOf(engine.params.channelMode),
     (idx) => {
       engine.params.channelMode = channelModes[idx];
-    }
+    },
   );
   section.appendChild(channelSel.element);
 
@@ -327,7 +342,7 @@ function buildNdiModule(rack: HTMLElement, engine: NdiEngine): void {
     alphaModes.indexOf(engine.params.alphaMode),
     (idx) => {
       engine.params.alphaMode = alphaModes[idx];
-    }
+    },
   );
   section.appendChild(alphaSel.element);
 

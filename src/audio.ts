@@ -2,21 +2,21 @@ export class AudioEngine {
   private ctx: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private dataArray: Uint8Array | null = null;
-  
+
   public async init(): Promise<void> {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      
+
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       this.ctx = new AudioContextClass();
-      
+
       const source = this.ctx.createMediaStreamSource(stream);
       this.analyser = this.ctx.createAnalyser();
       this.analyser.fftSize = 512;
       this.analyser.smoothingTimeConstant = 0.8;
-      
+
       source.connect(this.analyser);
-      
+
       this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
     } catch (err) {
       console.error('Failed to initialize AudioEngine:', err);
@@ -30,7 +30,7 @@ export class AudioEngine {
     }
 
     this.analyser.getByteFrequencyData(this.dataArray as Uint8Array<ArrayBuffer>);
-    
+
     const sampleRate = this.ctx.sampleRate;
     const nyquist = sampleRate / 2;
     const binCount = this.analyser.frequencyBinCount;
@@ -39,20 +39,20 @@ export class AudioEngine {
     const getAverage = (startHz: number, endHz: number): number => {
       let startBin = Math.floor(startHz / hzPerBin);
       let endBin = Math.ceil(endHz / hzPerBin);
-      
+
       startBin = Math.max(0, startBin);
       endBin = Math.min(binCount - 1, endBin);
-      
+
       if (startBin > endBin) return 0;
-      
+
       let sum = 0;
       let count = 0;
       for (let i = startBin; i <= endBin; i++) {
         sum += this.dataArray![i];
         count++;
       }
-      
-      return count > 0 ? (sum / count) / 255.0 : 0;
+
+      return count > 0 ? sum / count / 255.0 : 0;
     };
 
     const bass = getAverage(20, 250);

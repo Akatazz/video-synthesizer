@@ -1,0 +1,11 @@
+# Human-readable project index. Build commands are enforced by GitHub Actions;
+# this file does not configure or grant access to a coding agent.
+project:
+  language: typescript
+  build: npm run build
+  entry: src/main.ts
+platforms:
+  windows: apps/windows
+  apple: apps/apple
+  linux: apps/linux
+  android: apps/android

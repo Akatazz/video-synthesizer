@@ -1,0 +1,57 @@
+[
+  {
+    "name": "gamma two",
+    "sourceWidth": 2,
+    "sourceHeight": 1,
+    "sourceBGRA": [128, 128, 128, 255, 64, 64, 64, 255],
+    "width": 2,
+    "height": 1,
+    "cutoff": 0,
+    "gamma": 2,
+    "channel": 0,
+    "alpha": 0,
+    "expectedBGRA": [64, 64, 64, 255, 16, 16, 16, 255]
+  },
+  {
+    "name": "luma and luma alpha",
+    "sourceWidth": 2,
+    "sourceHeight": 1,
+    "sourceBGRA": [0, 0, 255, 255, 0, 255, 0, 255],
+    "width": 2,
+    "height": 1,
+    "cutoff": 0,
+    "gamma": 1,
+    "channel": 1,
+    "alpha": 1,
+    "expectedBGRA": [54, 54, 54, 54, 182, 182, 182, 182]
+  },
+  {
+    "name": "black cutoff and inverted alpha",
+    "sourceWidth": 2,
+    "sourceHeight": 1,
+    "sourceBGRA": [10, 10, 10, 255, 255, 255, 255, 255],
+    "width": 2,
+    "height": 1,
+    "cutoff": 0.05,
+    "gamma": 1,
+    "channel": 0,
+    "alpha": 2,
+    "expectedBGRA": [0, 0, 0, 255, 255, 255, 255, 0]
+  },
+  {
+    "name": "bilinear top-down resize",
+    "sourceWidth": 2,
+    "sourceHeight": 2,
+    "sourceBGRA": [0, 0, 255, 255, 0, 255, 0, 255, 255, 0, 0, 255, 10, 10, 10, 255],
+    "width": 4,
+    "height": 2,
+    "cutoff": 0,
+    "gamma": 1,
+    "channel": 0,
+    "alpha": 0,
+    "expectedBGRA": [
+      0, 0, 255, 255, 0, 64, 191, 255, 0, 191, 64, 255, 0, 255, 0, 255, 255, 0, 0, 255, 194, 3, 3,
+      255, 71, 8, 8, 255, 10, 10, 10, 255
+    ]
+  }
+]
