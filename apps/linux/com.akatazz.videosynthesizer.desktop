@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=LZX-V Video Synthesizer
+Comment=Generate video with recursive feedback and audio modulation
+Exec=video-synthesizer
+Icon=video-display
+Terminal=false
+Categories=AudioVideo;Video;

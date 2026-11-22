@@ -26,9 +26,15 @@ Linux systems (including x64 and Arm64).
 GTK 4 and GStreamer shared libraries/plugins are required on the destination
 system. DSP tests include a synthetic GStreamer input; CI does not open a real
 microphone. See the [audio contract](../../contracts/AUDIO.md). GPU rendering,
-camera input, PNG export, and distribution packages remain to
+camera input and PNG export remain to
 implement. Linux CI checks the contract, renderer, and a real GTK window launch;
 file dialog interaction and desktop integration still need manual testing.
+
+For Ubuntu 24.04 on x86-64, download the Linux artifact from GitHub Actions,
+extract the ZIP, and install the package from that directory with
+`sudo apt install ./video-synthesizer_*.deb`. Open **LZX-V Video Synthesizer**
+from the applications menu. To package your own build, run
+`cpack --config apps/linux/build/CPackConfig.cmake -B artifacts/linux`.
 
 The scrollable rack includes native NDI output controls and lighting calibration.
 Install a compatible NDI runtime and Avahi, or enter the absolute runtime path,

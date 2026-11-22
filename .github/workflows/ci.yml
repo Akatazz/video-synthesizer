@@ -95,7 +95,7 @@ jobs:
           name: video-synthesizer-macos-unsigned
           path: artifacts/VideoSynthesizerMac.zip
   linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev nlohmann-json3-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-good libavahi-client3 avahi-daemon xvfb
@@ -116,6 +116,17 @@ jobs:
         run: timeout 30s xvfb-run -a apps/linux/build/video-synthesizer --background-smoke-test
       - name: Verify unmapped GTK NDI output
         run: timeout 30s xvfb-run -a apps/linux/build/video-synthesizer --background-ndi-smoke-test "$PWD/artifacts/ndi/package/libndi.so.6"
+      - name: Build and test the Ubuntu package
+        run: |
+          cpack --config apps/linux/build/CPackConfig.cmake -B artifacts/linux
+          sudo apt-get install -y ./artifacts/linux/*.deb
+          dpkg-query -L video-synthesizer | grep -Fx /usr/share/applications/com.akatazz.videosynthesizer.desktop
+          timeout 30s xvfb-run -a /usr/bin/video-synthesizer --smoke-test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: video-synthesizer-ubuntu-24.04-amd64
+          path: artifacts/linux/*.deb
+          if-no-files-found: error
   android:
     runs-on: ubuntu-latest
     steps:
